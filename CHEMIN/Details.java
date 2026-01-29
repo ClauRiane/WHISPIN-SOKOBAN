@@ -9,6 +9,18 @@ public class Details{
         this.i = i;
         this.j = j;
     }
+
+    public double getValue(){
+        return this.value;
+    }
+
+    public int getI(){
+        return this.i;
+    }
+
+    public int getJ(){
+        return this.j;
+    }
 }
 
 // public record Details(double value, int i, int j){}
