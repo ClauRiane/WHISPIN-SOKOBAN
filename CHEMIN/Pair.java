@@ -1,3 +1,6 @@
+// Rôle : Représente simplement des coordonnées (x,y) ou (ligne,colonne).
+// Fonctionnement : Elle stocke deux entiers (first, second). Elle contient une méthode equals importante pour vérifier si deux positions sont identiques (par exemple : "Est-ce que ma position actuelle est égale à la destination ?").
+
 public class Pair{
     int first;
     int second;
