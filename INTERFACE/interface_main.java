@@ -1,4 +1,4 @@
-import  javafx.application.Application;
+import javafx.application.Application;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 import javafx.scene.layout.BorderPane;
@@ -37,6 +37,11 @@ public class interface_main extends Application {
             stack.getChildren().addAll(fond, root);
 
             Scene scene = new Scene ( stack, 1000, 800);
+
+            bouton.setOnAction(e -> {
+                Scene scene2 = DeuxiemeScene.creerScene(stage, scene); 
+                stage.setScene(scene2);
+            });
             
             stage . setTitle ( " Ma fenetre " );
             stage . setScene ( scene );
