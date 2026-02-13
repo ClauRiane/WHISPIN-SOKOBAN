@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Représente une cible dans le jeu Sokoban
  * Une cible est traversable et indique où les boîtes doivent être placées

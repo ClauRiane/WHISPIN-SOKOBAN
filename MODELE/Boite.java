@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Représente une boîte dans le jeu Sokoban
  * Une boîte peut être poussée par le personnage si la case suivante le permet

@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Classe abstraite représentant un élément du jeu Sokoban.
  * Tous les éléments du plateau (Mur, Boite, Personnage, Cible, CaseVide) 

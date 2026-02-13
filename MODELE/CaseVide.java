@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Représente une case vide dans le jeu Sokoban
  * Une case vide est traversable par le personnage et les boîtes

@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Représente le personnage (joueur) dans le jeu Sokoban
  * Il n'y a qu'un seul personnage par niveau

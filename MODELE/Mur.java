@@ -1,3 +1,4 @@
+package MODELE;
 /**
  * Représente un mur dans le jeu Sokoban.
  * Un mur est un élément statique et immutable qui bloque tous les déplacements.
