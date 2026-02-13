@@ -1,5 +1,6 @@
 JAVAC := javac
 JAVA := java
+LIB_CP ?= lib/*
 
 # Adjust this if your JavaFX libs are elsewhere
 JAVAFX_LIB ?= /usr/share/openjfx/lib
@@ -15,10 +16,10 @@ all: build
 
 build:
 	mkdir -p $(BIN)
-	$(JAVAC) --module-path $(JAVAFX_LIB) --add-modules $(JAVAFX_MODULES) -d $(BIN) $(SRC)
+	$(JAVAC) --module-path $(JAVAFX_LIB) --add-modules $(JAVAFX_MODULES) -cp "$(LIB_CP)" -d $(BIN) $(SRC)
 
 run: build
-	$(JAVA) --module-path $(JAVAFX_LIB) --add-modules $(JAVAFX_MODULES) -cp $(BIN) $(MAIN)
+	$(JAVA) --module-path $(JAVAFX_LIB) --add-modules $(JAVAFX_MODULES) -cp "$(BIN):$(LIB_CP)" $(MAIN)
 
 jar: build
 	jar --create --file sokoban.jar -C $(BIN) .
