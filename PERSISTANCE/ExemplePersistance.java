@@ -19,9 +19,9 @@ public class ExemplePersistance {
      * @throws Exception en cas d'erreur de lecture/écriture
      */
     public static void main(String[] args) throws Exception {
-        Path cheminPlateau = Path.of("INSTALL", "niveau1.txt");
-        Path cheminPartie = Path.of("INSTALL", "sauvegarde_partie.json");
-        Path cheminSolution = Path.of("INSTALL", "chemin_solution.json");
+        Path cheminPlateau = Path.of("PERSISTANCE", "solution", "niveau1.txt");
+        Path cheminPartie = Path.of("PERSISTANCE", "solution", "sauvegarde_partie.json");
+        Path cheminSolution = Path.of("PERSISTANCE", "solution", "chemin_solution.json");
 
         List<String> lignes = List.of(
             "#####",
