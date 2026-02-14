@@ -7,11 +7,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Exemple minimal d'utilisation de la couche de persistance.
+ * Tantation d'utilisation du code persistance.
  */
 public class ExemplePersistance {
     /**
-     * Démonstration :
      * 1) crée un plateau,
      * 2) sauvegarde plateau/partie/chemin,
      * 3) recharge les données depuis les fichiers.
