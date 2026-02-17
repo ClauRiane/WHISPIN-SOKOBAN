@@ -5,7 +5,7 @@ package MODELE;
  * Il ne peut être ni traversé ni poussé.
  * 
  */
-public final class Mur extends Element {
+public final class CaseMur extends Case {
     
     // comme tous les murs sont identiques on peut utiliser une seule instance
     private static final Mur INSTANCE = new Mur();

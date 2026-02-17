@@ -6,7 +6,7 @@ package MODELE;
  * 
  */
 
-public class Boite extends Element {
+public class CaseBoite extends Case {
     
     /** indique si la boîte est actuellement sur une cible */
     private boolean surCible;
