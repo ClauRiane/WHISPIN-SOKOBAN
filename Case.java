@@ -22,35 +22,39 @@ public class Case{
     /**
      * nous dit si la case est un mur ou non
      */
-    public boolean estMur(){}
+    public boolean estMur(){return false;}
 
     /**
      * nous dit si la case est une boite ou non
      */
-    public boolean estBoite(){}
+    public boolean estBoite(){return false;}
 
     /**
      * nous dit si la case est vide ou non
      */
-    public boolean estVide(){}
+    public boolean estVide(){return false;}
 
     /**
      * nous dit si la case est une cible ou non
      */
-    public boolean estCible(){}
+    public boolean estCible(){return false;}
 
      /**
      * nous dit si le personnage est sur une case vide ou non
      */
-    public boolean estPersonnageCible(){}
+    public boolean estPersonnageCible(){return false;}
 
      /**
      * nous dit si la boite est sur une cible ou non
      */
-    public boolean estBoiteCible(){}
+    public boolean estBoiteCible(){return false;}
 
     /**
      * nous dit si le personnage ou une boite peut se deplacer sur la case
      */
-    public boolean estTraversable(){}
+    public boolean estTraversable(){return false;}
+
+    public boolean estPoussable(){return false;}
+
+    public char getSymbole(){return ' ';}
 }

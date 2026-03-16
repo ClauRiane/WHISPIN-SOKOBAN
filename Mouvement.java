@@ -1,5 +1,3 @@
-package PERSISTANCE;
-
 public enum Mouvement {
     HAUT('H'),
     BAS('B'),

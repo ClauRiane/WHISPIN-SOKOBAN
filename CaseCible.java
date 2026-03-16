@@ -1,4 +1,3 @@
-package MODELE;
 /**
  * Représente une cible dans le jeu Sokoban
  * Une cible est traversable et indique où les boîtes doivent être placées
@@ -8,13 +7,14 @@ package MODELE;
 public final class CaseCible extends Case {
     
     // instance unique partagée 
-    private static final Cible INSTANCE = new Cible();
+    private static final CaseCible INSTANCE = new CaseCible();
     
     /**
      * constructeur privé pour empêcher l'instanciation directe
      * utiliser getInstance() à la place
      */
-    private Cible() {
+    private CaseCible() {
+        super(0, 0);
         // les cibles sont inchangeables
     }
     
@@ -23,7 +23,7 @@ public final class CaseCible extends Case {
      * 
      * @return l'instance unique de Cible
      */
-    public static Cible getInstance() {
+    public static CaseCible getInstance() {
         return INSTANCE;
     }
     
@@ -85,7 +85,7 @@ public final class CaseCible extends Case {
      */
     @Override
     public boolean equals(Object obj) {
-        return obj instanceof Cible;
+        return obj instanceof CaseCible;
     }
     
     /**
@@ -95,6 +95,6 @@ public final class CaseCible extends Case {
      */
     @Override
     public int hashCode() {
-        return Cible.class.hashCode();
+        return CaseCible.class.hashCode();
     }
 }

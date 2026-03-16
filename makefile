@@ -8,7 +8,7 @@ JAVAFX_MODULES ?= javafx.controls,javafx.fxml
 
 SRC := $(shell find . -name "*.java")
 BIN := bin
-MAIN := INTERFACE.interface_main
+MAIN := interface_main
 
 .PHONY: all build run clean jar help
 

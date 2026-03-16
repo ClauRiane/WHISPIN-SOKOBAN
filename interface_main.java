@@ -1,4 +1,3 @@
-package INTERFACE;
 import javafx.application.Application;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
@@ -13,9 +12,12 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 
 public class interface_main extends Application {
-
+    private Jeu jeu;
+    
     @Override
     public void start(Stage stage) {
+            jeu = new Jeu();
+        
             BorderPane root = new BorderPane();
 
             Image image = new Image("https://www.meme-arsenal.com/memes/7de1cccd58be2b01261e613c08663e9a.jpg");
@@ -34,13 +36,13 @@ public class interface_main extends Application {
             root.setCenter(bouton);
             
             StackPane stack = new StackPane();
-            Rectangle fond = new Rectangle(1000, 800,Color.LIGHTGREEN);
+            Rectangle fond = new Rectangle(1000, 800,Color.GREEN);
             stack.getChildren().addAll(fond, root);
 
             Scene scene = new Scene ( stack, 1000, 800);
 
             bouton.setOnAction(e -> {
-                Scene scene2 = DeuxiemeScene.creerScene(stage, scene); 
+                Scene scene2 = DeuxiemeScene.creerScene(stage, scene,jeu.getCarte()); 
                 stage.setScene(scene2);
             });
             

@@ -1,6 +1,3 @@
-package PERSISTANCE;
-
-import MODELE.Element;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -31,7 +28,7 @@ public final class ServicePersistance {
      * @param grille grille à sauvegarder
      * @throws IOException en cas d'erreur d'écriture
      */
-    public static void sauvegarderPlateauDansFichierTexte(Path cheminFichier, List<List<Element>> grillePlateau) throws IOException {
+    public static void sauvegarderPlateauDansFichierTexte(Path cheminFichier, List<List<Case>> grillePlateau) throws IOException {
         PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau);
     }
 
@@ -42,8 +39,8 @@ public final class ServicePersistance {
      * @return la grille chargée
      * @throws IOException en cas d'erreur de lecture
      */
-    public static List<List<Element>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
-        return PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
+    public static List<List<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
+        return (List<List<Case>>) (List<?>) PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
     }
 
     /**

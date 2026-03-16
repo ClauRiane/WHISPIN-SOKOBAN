@@ -1,7 +1,3 @@
-package PERSISTANCE;
-
-import MODELE.Element;
-
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +27,7 @@ public class ExemplePersistance {
             "#####"
         );
 
-        List<List<Element>> grille = PlateauTexteFichier.convertirLignesVersGrille(lignes);
+        List<List<Case>> grille = (List<List<Case>>) (List<?>) PlateauTexteFichier.convertirLignesVersGrille(lignes);
         ServicePersistance.sauvegarderPlateauDansFichierTexte(cheminPlateau, grille);
 
         EtatPartie etat = new EtatPartie(

@@ -1,4 +1,3 @@
-package MODELE;
 /**
  * Représente un mur dans le jeu Sokoban.
  * Un mur est un élément statique et immutable qui bloque tous les déplacements.
@@ -8,13 +7,14 @@ package MODELE;
 public final class CaseMur extends Case {
     
     // comme tous les murs sont identiques on peut utiliser une seule instance
-    private static final Mur INSTANCE = new Mur();
+    private static final CaseMur INSTANCE = new CaseMur();
     
     /**
      * constructeur privé pour empêcher une instance directe
      * utiliser getInstance() à la place
      */
-    private Mur() {
+    private CaseMur() {
+        super(0, 0);
         // Les murs sont inchamgeables donc on met rien ici
     }
     
@@ -23,7 +23,7 @@ public final class CaseMur extends Case {
      * 
      * @return l'instance unique de Mur
      */
-    public static Mur getInstance() {
+    public static CaseMur getInstance() {
         return INSTANCE;
     }
     
@@ -75,7 +75,7 @@ public final class CaseMur extends Case {
      */
     @Override
     public boolean equals(Object obj) {
-        return obj instanceof Mur;
+        return obj instanceof CaseMur;
     }
     
     /**
@@ -85,6 +85,6 @@ public final class CaseMur extends Case {
      */
     @Override
     public int hashCode() {
-        return Mur.class.hashCode();
+        return CaseMur.class.hashCode();
     }
 }

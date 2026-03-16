@@ -1,4 +1,3 @@
-package MODELE;
 /**
  * Représente une boîte dans le jeu Sokoban
  * Une boîte peut être poussée par le personnage si la case suivante le permet
@@ -15,7 +14,7 @@ public class CaseBoite extends Case {
      * constructeur par défaut
      * crée une boîte qui n'est pas sur une cible
      */
-    public Boite() {
+    public CaseBoite() {
         this(false);
     }
     
@@ -24,7 +23,8 @@ public class CaseBoite extends Case {
      * 
      * @param surCible true si la boîte est initialement sur une cible false sinon
      */
-    public Boite(boolean surCible) {
+    public CaseBoite(boolean surCible) {
+        super(0, 0); // les coordonnées de la boîte sont gérées par la map
         this.surCible = surCible;
     }
     
@@ -108,8 +108,8 @@ public class CaseBoite extends Case {
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
-        if (!(obj instanceof Boite)) return false;
-        Boite autre = (Boite) obj;
+        if (!(obj instanceof CaseBoite)) return false;
+        CaseBoite autre = (CaseBoite) obj;
         return this.surCible == autre.surCible;
     }
     

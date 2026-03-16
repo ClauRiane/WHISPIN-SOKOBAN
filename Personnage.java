@@ -1,4 +1,3 @@
-package MODELE;
 /**
  * Représente le personnage (joueur) dans le jeu Sokoban
  * Il n'y a qu'un seul personnage par niveau
@@ -6,7 +5,7 @@ package MODELE;
  * Il peut être sur une cible ou non
  * 
  */
-public class Personnage extends Element {
+public class Personnage extends Case {
     
     /** indique si le personnage est actuellement sur une cible */
     private boolean surCible;
@@ -25,6 +24,7 @@ public class Personnage extends Element {
      * @param surCible true si le personnage est initialement sur une cible false sinon
      */
     public Personnage(boolean surCible) {
+        super(0, 0); // les coordonnées du personnage sont gérées par la map
         this.surCible = surCible;
     }
     
@@ -54,7 +54,7 @@ public class Personnage extends Element {
      * @return true
      */
     @Override
-    public boolean estPersonnage() {
+    public boolean estPersonnageCible() {
         return true;
     }
     

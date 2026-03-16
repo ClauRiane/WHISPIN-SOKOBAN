@@ -1,10 +1,9 @@
-package MODELE;
 /**
  * Représente une case vide dans le jeu Sokoban
  * Une case vide est traversable par le personnage et les boîtes
  * 
  */
-public final class CaseVide extends Element {
+public final class CaseVide extends Case {
     
     // instance unique 
     private static final CaseVide INSTANCE = new CaseVide();
@@ -14,7 +13,9 @@ public final class CaseVide extends Element {
      * utiliser getInstance() à la place
      */
     private CaseVide() {
-        // Les cases vides sont inchangeanbles donc on met rien ici
+        super(0, 0);
+        // les cases vides sont inchangeables
+        
     }
     
     /**
