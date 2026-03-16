@@ -5,7 +5,7 @@ package MODELE;
  * Le jeu est gagné quand toutes les cibles ont une boîte dessus
  * 
  */
-public final class CaseCible extends Case {
+public final class Cible extends Element {
     
     // instance unique partagée 
     private static final Cible INSTANCE = new Cible();

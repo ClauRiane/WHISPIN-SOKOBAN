@@ -6,7 +6,7 @@ package MODELE;
  * 
  */
 
-public class CaseBoite extends Case {
+public class Boite extends Element {
     
     /** indique si la boîte est actuellement sur une cible */
     private boolean surCible;
@@ -20,7 +20,7 @@ public class CaseBoite extends Case {
     }
     
     /**
-     * onstructeur avec état initial.
+     * Constructeur avec état initial.
      * 
      * @param surCible true si la boîte est initialement sur une cible false sinon
      */
