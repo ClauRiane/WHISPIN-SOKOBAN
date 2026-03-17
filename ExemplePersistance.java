@@ -1,5 +1,6 @@
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,15 +20,15 @@ public class ExemplePersistance {
         Path cheminPartie = Path.of("PERSISTANCE", "solution", "sauvegarde_partie.json");
         Path cheminSolution = Path.of("PERSISTANCE", "solution", "chemin_solution.json");
 
-        List<String> lignes = List.of(
+        ArrayList<String> lignes = new ArrayList<>(List.of(
             "#####",
             "#.@ #",
             "# $ #",
             "# . #",
             "#####"
-        );
+        ));
 
-        List<List<Case>> grille = (List<List<Case>>) (List<?>) PlateauTexteFichier.convertirLignesVersGrille(lignes);
+        ArrayList<ArrayList<Case>> grille = PlateauTexteFichier.convertirLignesVersGrille(lignes);
         ServicePersistance.sauvegarderPlateauDansFichierTexte(cheminPlateau, grille);
 
         EtatPartie etat = new EtatPartie(
@@ -41,7 +42,7 @@ public class ExemplePersistance {
         ServicePersistance.sauvegarderCheminDansFichierJson(cheminSolution, etat.getChemin());
 
         EtatPartie partieChargee = ServicePersistance.chargerPartieDepuisFichierJson(cheminPartie);
-        List<Mouvement> cheminCharge = ServicePersistance.chargerCheminDepuisFichierJson(cheminSolution);
+        ArrayList<Mouvement> cheminCharge = ServicePersistance.chargerCheminDepuisFichierJson(cheminSolution);
 
         System.out.println("Partie chargée: " + partieChargee.getNiveau() + ", coups=" + partieChargee.getCoups());
         System.out.println("Chemin chargé: " + cheminCharge);

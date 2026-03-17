@@ -1,23 +1,23 @@
-import java.util.List;
+import java.util.ArrayList;
 
 public class Carte<T> {
 
-    private List<List<T>> carte;
+    private ArrayList<ArrayList<T>> carte;
 
-    public Carte(List<List<T>> carte){
+    public Carte(ArrayList<ArrayList<T>> carte){
         this.carte = carte;
     }
 
-    public List<List<T>> getCarte() {
+    public ArrayList<ArrayList<T>> getCarte() {
         return carte;
     }
 
-    public void setCarte(List<List<T>> carte) {
+    public void setCarte(ArrayList<ArrayList<T>> carte) {
         this.carte = carte;
     }
 
     public void afficherCarte(){
-        for (List<T> ligne : carte) {
+        for (ArrayList<T> ligne : carte) {
             for (T element : ligne) {
                 if (element instanceof CaseMur) {
                     System.out.print("# ");
