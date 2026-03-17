@@ -47,13 +47,21 @@ public final class PlateauTexteFichier {
             throw new IllegalArgumentException("Le fichier de plateau est vide");
         }
 
+        int largeurMax = 0;
+        for (String ligne : lignesPlateau) {
+            if (ligne.length() > largeurMax) {
+                largeurMax = ligne.length();
+            }
+        }
+
         List<List<Case>> grillePlateau = new ArrayList<>();
         int nombrePersonnages = 0;
 
         for (String ligneTexte : lignesPlateau) {
             List<Case> elementsDeLigne = new ArrayList<>();
-            for (int i = 0; i < ligneTexte.length(); i++) {
-                char symbole = ligneTexte.charAt(i);
+            for (int i = 0; i < largeurMax; i++) {
+                // Complète les lignes trop courtes pour garantir une grille rectangulaire.
+                char symbole = i < ligneTexte.length() ? ligneTexte.charAt(i) : ' ';
                 Case elementCourant = convertirSymboleVersElement(symbole);
                 if (elementCourant.estPersonnageCible()) {
                     nombrePersonnages++;

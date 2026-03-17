@@ -3,7 +3,8 @@ JAVA := java
 LIB_CP ?= lib/*
 
 # Adjust this if your JavaFX libs are elsewhere
-JAVAFX_LIB ?= /usr/share/openjfx/lib
+# Prefer the system JavaFX install when available; override JAVAFX_LIB if needed.
+JAVAFX_LIB ?= $(firstword $(wildcard /usr/share/openjfx/lib /snap/openjfx/current/sdk/lib))
 JAVAFX_MODULES ?= javafx.controls,javafx.fxml
 
 SRC := $(shell find . -name "*.java")

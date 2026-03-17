@@ -3,9 +3,16 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Tantation d'utilisation du code persistance.
+ * Tentative d'utilisation du code persistance.
  */
-public class ExemplePersistance {
+public final class ExemplePersistance {
+    private static final Path CHEMIN_PLATEAU = Path.of("PERSISTANCE", "solution", "niveau1.txt");
+    private static final Path CHEMIN_PARTIE = Path.of("PERSISTANCE", "solution", "sauvegarde_partie.json");
+    private static final Path CHEMIN_SOLUTION = Path.of("PERSISTANCE", "solution", "chemin_solution.json");
+
+    private ExemplePersistance() {
+    }
+
     /**
      * 1) crée un plateau,
      * 2) sauvegarde plateau/partie/chemin,
@@ -15,11 +22,7 @@ public class ExemplePersistance {
      * @throws Exception en cas d'erreur de lecture/écriture
      */
     public static void main(String[] args) throws Exception {
-        Path cheminPlateau = Path.of("PERSISTANCE", "solution", "niveau1.txt");
-        Path cheminPartie = Path.of("PERSISTANCE", "solution", "sauvegarde_partie.json");
-        Path cheminSolution = Path.of("PERSISTANCE", "solution", "chemin_solution.json");
-
-        List<String> lignes = List.of(
+        List<String> lignesPlateau = List.of(
             "#####",
             "#.@ #",
             "# $ #",
@@ -27,8 +30,8 @@ public class ExemplePersistance {
             "#####"
         );
 
-        List<List<Case>> grille = (List<List<Case>>) (List<?>) PlateauTexteFichier.convertirLignesVersGrille(lignes);
-        ServicePersistance.sauvegarderPlateauDansFichierTexte(cheminPlateau, grille);
+        List<List<Case>> grille = PlateauTexteFichier.convertirLignesVersGrille(lignesPlateau);
+        ServicePersistance.sauvegarderPlateauDansFichierTexte(CHEMIN_PLATEAU, grille);
 
         EtatPartie etat = new EtatPartie(
             "niveau1",
@@ -37,11 +40,11 @@ public class ExemplePersistance {
             PlateauTexteFichier.convertirGrilleVersLignes(grille),
             Arrays.asList(Mouvement.DROITE, Mouvement.BAS, Mouvement.GAUCHE)
         );
-        ServicePersistance.sauvegarderPartieDansFichierJson(cheminPartie, etat);
-        ServicePersistance.sauvegarderCheminDansFichierJson(cheminSolution, etat.getChemin());
+        ServicePersistance.sauvegarderPartieDansFichierJson(CHEMIN_PARTIE, etat);
+        ServicePersistance.sauvegarderCheminDansFichierJson(CHEMIN_SOLUTION, etat.getChemin());
 
-        EtatPartie partieChargee = ServicePersistance.chargerPartieDepuisFichierJson(cheminPartie);
-        List<Mouvement> cheminCharge = ServicePersistance.chargerCheminDepuisFichierJson(cheminSolution);
+        EtatPartie partieChargee = ServicePersistance.chargerPartieDepuisFichierJson(CHEMIN_PARTIE);
+        List<Mouvement> cheminCharge = ServicePersistance.chargerCheminDepuisFichierJson(CHEMIN_SOLUTION);
 
         System.out.println("Partie chargée: " + partieChargee.getNiveau() + ", coups=" + partieChargee.getCoups());
         System.out.println("Chemin chargé: " + cheminCharge);

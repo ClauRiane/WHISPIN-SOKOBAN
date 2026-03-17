@@ -40,7 +40,7 @@ public final class ServicePersistance {
      * @throws IOException en cas d'erreur de lecture
      */
     public static List<List<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
-        return (List<List<Case>>) (List<?>) PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
+        return PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
     }
 
     /**
@@ -57,11 +57,7 @@ public final class ServicePersistance {
         donneesJson.put(CLE_HORODATAGE, etatPartie.getHorodatage());
         donneesJson.put(CLE_PLATEAU, new ArrayList<>(etatPartie.getPlateau()));
 
-        List<String> codesMouvements = new ArrayList<>();
-        for (Mouvement mouvement : etatPartie.getChemin()) {
-            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
-        }
-        donneesJson.put(CLE_CHEMIN, codesMouvements);
+        donneesJson.put(CLE_CHEMIN, convertirMouvementsEnCodes(etatPartie.getChemin()));
 
         ecrireDansFichierJson(cheminFichier, donneesJson);
     }
@@ -107,11 +103,7 @@ public final class ServicePersistance {
     public static void sauvegarderCheminDansFichierJson(Path cheminFichier, List<Mouvement> listeMouvements) throws IOException {
         Map<String, Object> donneesJson = new LinkedHashMap<>();
 
-        List<String> codesMouvements = new ArrayList<>();
-        for (Mouvement mouvement : listeMouvements) {
-            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
-        }
-        donneesJson.put(CLE_MOUVEMENTS, codesMouvements);
+        donneesJson.put(CLE_MOUVEMENTS, convertirMouvementsEnCodes(listeMouvements));
         ecrireDansFichierJson(cheminFichier, donneesJson);
     }
 
@@ -181,5 +173,13 @@ public final class ServicePersistance {
             resultat.add(texte);
         }
         return resultat;
+    }
+
+    private static List<String> convertirMouvementsEnCodes(List<Mouvement> mouvements) {
+        List<String> codesMouvements = new ArrayList<>();
+        for (Mouvement mouvement : mouvements) {
+            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
+        }
+        return codesMouvements;
     }
 }

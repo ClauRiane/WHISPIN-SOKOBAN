@@ -15,6 +15,11 @@ public class Pair{
         return obj instanceof Pair && this.first == ((Pair)obj).first && this.second == ((Pair)obj).second;
     }
 
+    @Override
+    public int hashCode(){
+        return 31 * first + second;
+    }
+
     public int getFirst(){
         return this.first;
     }
