@@ -437,6 +437,7 @@ public class DeuxiemeScene {
         gc.strokeLine(bx + bs * 0.5, by + bs * 0.15, bx + bs * 0.5, by + bs * 0.85);
         gc.strokeLine(bx + bs * 0.15, by + bs * 0.5, bx + bs * 0.85, by + bs * 0.5);
     }
+    caca
 
     private static void dessinerPersonnage(
         GraphicsContext gc,
