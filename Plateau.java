@@ -347,8 +347,12 @@ public class Plateau {
             // Restaurer la case où était la boite après (vide ou cible)
             Case caseApresBoite = getCase(posBoiteApres);
             if (caseApresBoite instanceof CaseBoite) {
-                // La case sous la boite
-                setCase(posBoiteApres, CaseVide.getInstance());
+                CaseBoite boiteApres = (CaseBoite) caseApresBoite;
+                if (boiteApres.estSurCible()) {
+                    setCase(posBoiteApres, CaseCible.getInstance());
+                } else {
+                    setCase(posBoiteApres, CaseVide.getInstance());
+                }
             }
         } else {
             // Cas 2 : Mouvement simple - restaurer la case d'arrivée

@@ -33,7 +33,7 @@ public class interface_main extends Application {
         redessinerAccueil(canvas, scene.getWidth(), scene.getHeight());
 
         canvas.setOnMouseClicked(e -> {
-            Scene scene2 = DeuxiemeScene.creerScene(stage, scene, jeu.getCarte());
+            Scene scene2 = DeuxiemeScene.creerScene(stage, scene, jeu.getPlateau());
             stage.setScene(scene2);
         });
 

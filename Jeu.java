@@ -1,28 +1,39 @@
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Jeu {
     private static final Path CHEMIN_CARTE_PAR_DEFAUT = Path.of("carte_niveau_simple.txt");
 
-    private final Carte<Case> carte;
+    private final Plateau plateau;
 
     public Jeu() {
-        this.carte = chargerCarteDeTest();
+        this.plateau = chargerPlateauDeTest();
     }
 
-    private static Carte<Case> chargerCarteDeTest() {
+    private static Plateau chargerPlateauDeTest() {
         try {
-            return new Carte<>(PlateauTexteFichier.chargerDepuisFichierTexte(CHEMIN_CARTE_PAR_DEFAUT));
+            List<List<Case>> grille = PlateauTexteFichier.chargerDepuisFichierTexte(CHEMIN_CARTE_PAR_DEFAUT);
+            return new Plateau(convertirEnArrayList(grille));
         } catch (Exception e) {
             throw new IllegalStateException("Erreur : impossible de charger la carte !", e);
         }
     }
 
-    public Carte<Case> getCarte() {
-        return carte;
+    private static ArrayList<ArrayList<Case>> convertirEnArrayList(List<List<Case>> grille) {
+        ArrayList<ArrayList<Case>> copie = new ArrayList<>();
+        for (List<Case> ligne : grille) {
+            copie.add(new ArrayList<>(ligne));
+        }
+        return copie;
+    }
+
+    public Plateau getPlateau() {
+        return plateau;
     }
 
     public void lancer() {
         System.out.println("Bienvenue dans le jeu de Sokoban !");
-        carte.afficherCarte();
+        System.out.println(plateau);
     }
 }
