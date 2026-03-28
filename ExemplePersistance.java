@@ -38,7 +38,11 @@ public final class ExemplePersistance {
             12,
             System.currentTimeMillis(),
             PlateauTexteFichier.convertirGrilleVersLignes(grille),
-            Arrays.asList(Mouvement.DROITE, Mouvement.BAS, Mouvement.GAUCHE)
+            Arrays.asList(
+                new Mouvement(Direction.DROITE, false),
+                new Mouvement(Direction.BAS, false),
+                new Mouvement(Direction.GAUCHE, false)
+            )
         );
         ServicePersistance.sauvegarderPartieDansFichierJson(CHEMIN_PARTIE, etat);
         ServicePersistance.sauvegarderCheminDansFichierJson(CHEMIN_SOLUTION, etat.getChemin());
