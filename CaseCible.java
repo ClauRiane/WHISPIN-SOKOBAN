@@ -1,3 +1,6 @@
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+
 /**
  * Représente une cible dans le jeu Sokoban
  * Une cible est traversable et indique où les boîtes doivent être placées
@@ -96,5 +99,29 @@ public final class CaseCible extends Case {
     @Override
     public int hashCode() {
         return CaseCible.class.hashCode();
+    }
+
+    @Override
+    public Color getCouleurSol() {
+        return Color.web("#e8ddb7");
+    }
+
+    public void dessiner(GraphicsContext gc, double x, double y, double taille, long maintenantNs, boolean gagne) {
+        double frequencePulsation = gagne ? 8.0 : 4.5;
+        double temps = maintenantNs / 1_000_000_000.0;
+        double pulsation = 0.12 * (Math.sin(temps * frequencePulsation) + 1.0);
+        double rayonExterieur = taille * (0.42 + pulsation * 0.06);
+        double cx = x + taille / 2.0;
+        double cy = y + taille / 2.0;
+
+        gc.setFill(Color.web("#fff1c2"));
+        gc.fillOval(cx - rayonExterieur, cy - rayonExterieur, rayonExterieur * 2, rayonExterieur * 2);
+        gc.setStroke(Color.web("#b08b2d"));
+        gc.setLineWidth(Math.max(1.5, taille * 0.04));
+        gc.strokeOval(cx - rayonExterieur, cy - rayonExterieur, rayonExterieur * 2, rayonExterieur * 2);
+
+        double rayonInterieur = rayonExterieur * 0.55;
+        gc.setStroke(Color.web("#7f6a28"));
+        gc.strokeOval(cx - rayonInterieur, cy - rayonInterieur, rayonInterieur * 2, rayonInterieur * 2);
     }
 }

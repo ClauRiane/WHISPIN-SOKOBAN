@@ -1,10 +1,12 @@
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+
 /**
  * Représente une boîte dans le jeu Sokoban
  * Une boîte peut être poussée par le personnage si la case suivante le permet
  * Une boîte peut être sur une cible ou non
  * 
  */
-
 public class CaseBoite extends Case {
     
     /** indique si la boîte est actuellement sur une cible */
@@ -121,5 +123,31 @@ public class CaseBoite extends Case {
     @Override
     public int hashCode() {
         return Boolean.hashCode(surCible);
+    }
+
+    @Override
+    public Color getCouleurSol() {
+        return surCible ? Color.web("#e8ddb7") : Color.web("#e9d8a6");
+    }
+
+    public void dessiner(GraphicsContext gc, double x, double y, double taille, ControleurAnimation controleurAnimation, long maintenantNs) {
+        double rebond = 0.0;
+        if (controleurAnimation.getEtat() == ControleurAnimation.Etat.POUSSEE) {
+            double phase = Math.min(controleurAnimation.dureeEcouleeEnSecondes(maintenantNs) / ControleurAnimation.DUREE_POUSSEE_SECONDES, 1.0);
+            rebond = Math.sin(Math.PI * phase) * taille * 0.06;
+        }
+
+        double bx = x + taille * 0.12;
+        double by = y + taille * 0.12 - rebond;
+        double bs = taille * 0.76;
+
+        gc.setFill(surCible ? Color.web("#df9b2d") : Color.web("#a86a2a"));
+        gc.fillRoundRect(bx, by, bs, bs, 8, 8);
+        gc.setStroke(surCible ? Color.web("#7e5415") : Color.web("#6f4317"));
+        gc.setLineWidth(Math.max(1.5, taille * 0.04));
+        gc.strokeRoundRect(bx, by, bs, bs, 8, 8);
+
+        gc.strokeLine(bx + bs * 0.5, by + bs * 0.15, bx + bs * 0.5, by + bs * 0.85);
+        gc.strokeLine(bx + bs * 0.15, by + bs * 0.5, bx + bs * 0.85, by + bs * 0.5);
     }
 }

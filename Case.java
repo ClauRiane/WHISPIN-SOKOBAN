@@ -2,6 +2,8 @@
 chaque type de case est ensuite défini dans des sous classes
 chaque case a des coordonnées*/
 
+import javafx.scene.paint.Color;
+
 public class Case{
     private int x;
     private int y;
@@ -57,4 +59,6 @@ public class Case{
     public boolean estPoussable(){return false;}
 
     public char getSymbole(){return ' ';}
+
+    public Color getCouleurSol(){return Color.web("#d62828");}
 }
