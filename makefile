@@ -3,7 +3,7 @@ JAVA := java
 LIB_CP ?= lib/*
 
 # Adjust this if your JavaFX libs are elsewhere
-JAVAFX_LIB ?= /usr/share/openjfx/lib
+JAVAFX_LIB ?= /Users/clauriane/javafx-sdk-17.0.18/lib
 JAVAFX_MODULES ?= javafx.controls,javafx.fxml
 
 SRC := $(shell find . -name "*.java")

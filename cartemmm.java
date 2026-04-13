@@ -1,12 +1,9 @@
-package INTERFACE;
-import MODELE.CaseVide;
-import MODELE.Mur;
 import java.util.ArrayList;
 
-public class carte<Element> {
+public class cartemmm<Element> {
     private ArrayList<ArrayList<Element>> carte;
 
-    public carte(ArrayList<ArrayList<Element>> carte){ //constructeur de la classe map
+    public cartemmm(ArrayList<ArrayList<Element>> carte){ //constructeur de la classe map
         this.carte = carte;
     }
 
@@ -24,7 +21,7 @@ public class carte<Element> {
         for (ArrayList<Element> ligne : carte) {
             for (Element element : ligne) {
                 //System.out.print(element + " ");
-                if (element instanceof Mur) {
+                if (element instanceof CaseMur) {
                     System.out.print("# ");
                 } else if (element instanceof CaseVide) {
                     System.out.print("  ");
