@@ -31,7 +31,7 @@ public class Position {
         if (direction == null) {
             throw new IllegalArgumentException("La direction ne peut pas etre nulle");
         }
-        return new Position(x + direction.getgX(), y + direction.getgY());
+        return new Position(x + direction.getDeltaX(), y + direction.getDeltaY());
     }
 
     @Override

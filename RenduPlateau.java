@@ -4,6 +4,10 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
+/**
+ * Point d'entrée du rendu global du plateau.
+ * Cette classe orchestre les renderers spécialisés (mur, sol, cible, boîte, personnage).
+ */
 public final class RenduPlateau {
     private static final Color FOND = Color.web("#ece8dc");
     private static final int MARGE = 20;
@@ -72,22 +76,31 @@ public final class RenduPlateau {
                 gc.setStroke(Color.web("#2d241c"));
                 gc.strokeRect(x, y, tailleCase - 1, tailleCase - 1);
 
-                if (element instanceof CaseMur mur) {
-                    mur.dessiner(gc, x + 1, y + 1, tailleCase - 2);
+                if (element instanceof CaseMur) {
+                    RenduMur.dessiner(gc, x + 1, y + 1, tailleCase - 2);
                     continue;
                 }
 
-                CaseVide.getInstance().dessiner(gc, x + 1, y + 1, tailleCase - 2);
+                RenduVide.dessiner(gc, x + 1, y + 1, tailleCase - 2);
 
                 boolean cibleVisible = element instanceof CaseCible
                     || (element instanceof CaseBoite && ((CaseBoite) element).estSurCible())
                     || (element instanceof Personnage && ((Personnage) element).estSurCible());
                 if (cibleVisible) {
-                    CaseCible.getInstance().dessiner(gc, x + 1, y + 1, tailleCase - 2, maintenantNs, plateau.estGagne());
+                    RenduCible.dessiner(gc, x + 1, y + 1, tailleCase - 2, maintenantNs, plateau.estGagne());
                 }
 
                 if (element instanceof CaseBoite boite) {
-                    boite.dessiner(gc, x + 1, y + 1, tailleCase - 2, controleurAnimation, maintenantNs);
+                    RenduBoite.dessiner(
+                        gc,
+                        x + 1,
+                        y + 1,
+                        tailleCase - 2,
+                        boite.estSurCible(),
+                        boite.getSurCibleDepuisNs(),
+                        controleurAnimation,
+                        maintenantNs
+                    );
                     continue;
                 }
 
@@ -96,7 +109,15 @@ public final class RenduPlateau {
                 }
 
                 if (element instanceof Personnage personnage) {
-                    personnage.dessiner(gc, x + 1, y + 1, tailleCase - 2, controleurAnimation, maintenantNs);
+                    RenduPersonnage.dessiner(
+                        gc,
+                        x + 1,
+                        y + 1,
+                        tailleCase - 2,
+                        personnage.estSurCible(),
+                        controleurAnimation,
+                        maintenantNs
+                    );
                     continue;
                 }
 

@@ -1,8 +1,8 @@
 import java.util.ArrayList;
 
 /**
- * représente le plateau de jeu Sokoban
- * gère la grille, la position du personnage et toute la logique de déplacement
+ * Représente le plateau de jeu Sokoban.
+ * Gère la grille, la position du personnage et la logique de déplacement.
  */
 public class Plateau {
     
@@ -22,7 +22,7 @@ public class Plateau {
     private ArrayList<Mouvement> historique;
     
     /**
-     * constructeur vide pour créer un plateau vide
+     * Construit un plateau vide.
      */
     public Plateau() {
         this.grille = new ArrayList<>();
@@ -33,9 +33,9 @@ public class Plateau {
     }
     
     /**
-     * constructeur avec une grille existante
-     * 
-     * @param grille la grille de cases
+     * Construit un plateau à partir d'une grille existante.
+     *
+     * @param grille grille de cases
      * @throws IllegalArgumentException si la grille est invalide
      */
     public Plateau(ArrayList<ArrayList<Case>> grille) {
@@ -55,9 +55,9 @@ public class Plateau {
     }
     
     /**
-     * trouve la position du personnage dans la grille
-     * 
-     * @return la position du personnage, ou null si non trouvé
+     * Trouve la position du personnage dans la grille.
+     *
+     * @return position du personnage, ou null si non trouvée
      */
     private Position trouverPositionPersonnage() {
         for (int y = 0; y < hauteur; y++) {
@@ -72,10 +72,10 @@ public class Plateau {
     }
     
     /**
-     * retourne la case à la position donnée
-     * 
-     * @param pos la position
-     * @return la case à cette position
+     * Retourne la case à la position donnée.
+     *
+     * @param pos position
+     * @return case à cette position
      * @throws IndexOutOfBoundsException si la position est hors limites
      */
     public Case getCase(Position pos) {
@@ -83,11 +83,11 @@ public class Plateau {
     }
     
     /**
-     * retourne la case aux coordonnées données
-     * 
+     * Retourne la case aux coordonnées données.
+     *
      * @param x coordonnée x
      * @param y coordonnée y
-     * @return la case à cette position
+     * @return case à cette position
      * @throws IndexOutOfBoundsException si les coordonnées sont hors limites
      */
     public Case getCase(int x, int y) {
@@ -98,21 +98,21 @@ public class Plateau {
     }
     
     /**
-     * modifie la case à la position donnée
-     * 
-     * @param pos la position
-     * @param nouvelleCase la nouvelle case
+     * Modifie la case à la position donnée.
+     *
+     * @param pos position
+     * @param nouvelleCase nouvelle case
      */
     public void setCase(Position pos, Case nouvelleCase) {
         setCase(pos.getx(), pos.gety(), nouvelleCase);
     }
     
     /**
-     * modifie la case aux coordonnées données
-     * 
+     * Modifie la case aux coordonnées données.
+     *
      * @param x coordonnée x
      * @param y coordonnée y
-     * @param nouvelleCase la nouvelle case
+     * @param nouvelleCase nouvelle case
      */
     public void setCase(int x, int y, Case nouvelleCase) {
         if (!estDansLimites(x, y)) {
@@ -122,66 +122,66 @@ public class Plateau {
     }
     
     /**
-     * vérifie si une position est dans les limites du plateau
-     * 
+     * Vérifie si des coordonnées sont dans les limites du plateau.
+     *
      * @param x coordonnée x
      * @param y coordonnée y
-     * @return true si dans les limites, false sinon
+     * @return true si les coordonnées sont valides, false sinon
      */
     public boolean estDansLimites(int x, int y) {
         return x >= 0 && x < largeur && y >= 0 && y < hauteur;
     }
     
     /**
-     * vérifie si une position est dans les limites du plateau
-     * 
-     * @param pos la position à vérifier
-     * @return true si dans les limites, false sinon
+     * Vérifie si une position est dans les limites du plateau.
+     *
+     * @param pos position à vérifier
+     * @return true si la position est valide, false sinon
      */
     public boolean estDansLimites(Position pos) {
         return estDansLimites(pos.getx(), pos.gety());
     }
     
     /**
-     * retourne la position actuelle du personnage
-     * 
-     * @return la position du personnage
+     * Retourne la position actuelle du personnage.
+     *
+     * @return position du personnage
      */
     public Position getPositionPersonnage() {
         return positionPersonnage;
     }
     
     /**
-     * retourne la grille complète
-     * 
-     * @return la grille
+     * Retourne la grille complète.
+     *
+     * @return grille
      */
     public ArrayList<ArrayList<Case>> getGrille() {
         return grille;
     }
     
     /**
-     * retourne la hauteur du plateau
-     * 
-     * @return le nombre de lignes
+     * Retourne la hauteur du plateau.
+     *
+     * @return nombre de lignes
      */
     public int getHauteur() {
         return hauteur;
     }
     
     /**
-     * retourne la largeur du plateau
-     * 
-     * @return le nombre de colonnes
+     * Retourne la largeur du plateau.
+     *
+     * @return nombre de colonnes
      */
     public int getLargeur() {
         return largeur;
     }
     
     /**
-     * vérifie si un déplacement dans une direction est possible
-     * 
-     * @param direction la direction du déplacement
+     * Vérifie si un déplacement dans une direction est possible.
+     *
+     * @param direction direction du déplacement
      * @return true si le déplacement est possible, false sinon
      */
     public boolean peutSeDeplacer(Direction direction) {
@@ -207,13 +207,33 @@ public class Plateau {
         // Sinon (mur) peut pas
         return false;
     }
+
+    /**
+     * Indique si le prochain déplacement poussera une boîte.
+     * Cette vérification relève des règles du plateau.
+     *
+     * @param direction direction de déplacement envisagée
+     * @return true si le personnage poussera une boîte, false sinon
+     */
+    public boolean vaPousserBoite(Direction direction) {
+        if (!peutSeDeplacer(direction)) {
+            return false;
+        }
+
+        Position prochainePos = positionPersonnage.deplacer(direction);
+        if (!estDansLimites(prochainePos)) {
+            return false;
+        }
+
+        return getCase(prochainePos).estBoite();
+    }
     
     /**
-     * vérifie si une boite peut être poussée dans une direction
-     * 
-     * @param posBoite position de la boite
+     * Vérifie si une boîte peut être poussée dans une direction.
+     *
+     * @param posBoite position de la boîte
      * @param direction direction de la poussée
-     * @return true si la boite peut être poussée, false sinon
+     * @return true si la boîte peut être poussée, false sinon
      */
     private boolean peutPousserBoite(Position posBoite, Direction direction) {
         Position posApresBoite = posBoite.deplacer(direction);
@@ -230,10 +250,10 @@ public class Plateau {
     }
     
     /**
-     * effectue un déplacement dans une direction
-     * gère le déplacement du personnage et la poussée de boites si nécessaire
-     * 
-     * @param direction la direction du déplacement
+     * Effectue un déplacement dans une direction.
+     * Gère le déplacement du personnage et la poussée de boîtes si nécessaire.
+     *
+     * @param direction direction du déplacement
      * @return true si le déplacement a été effectué, false sinon
      */
     public boolean deplacer(Direction direction) {
@@ -320,9 +340,9 @@ public class Plateau {
     }
     
     /**
-     * annule le dernier mouvement effectué (Ctrl+Z)
-     * 
-     * @return true si l'annulation a réussi, false s'il n'y a pas de mouvement à annuler
+     * Annule le dernier mouvement effectué (Ctrl+Z).
+     *
+     * @return true si l'annulation a réussi, false sinon
      */
     public boolean annulerDernierMouvement() {
         if (historique.isEmpty()) {
@@ -375,8 +395,8 @@ public class Plateau {
     }
     
     /**
-     * vérifie si le niveau est terminé (toutes les boites sur des cibles)
-     * 
+     * Vérifie si le niveau est terminé (toutes les boîtes sur des cibles).
+     *
      * @return true si le niveau est gagné, false sinon
      */
     public boolean estGagne() {
@@ -397,9 +417,9 @@ public class Plateau {
     }
     
     /**
-     * vompte le nombre de boites sur des cibles 
-     * 
-     * @return le nombre de boites correctement placées
+     * Compte le nombre de boîtes sur des cibles.
+     *
+     * @return nombre de boîtes correctement placées
      */
     public int compterBoitesSurCibles() {
         int compte = 0;
@@ -418,9 +438,9 @@ public class Plateau {
     }
     
     /**
-     * compte le nombre total de cibles dans le niveau
-     * 
-     * @return le nombre de cibles
+     * Compte le nombre total de cibles dans le niveau.
+     *
+     * @return nombre de cibles
      */
     public int compterCibles() {
         int compte = 0;
@@ -438,24 +458,24 @@ public class Plateau {
     }
     
     /**
-     * réinitialise l'historique des mouvements
+     * Réinitialise l'historique des mouvements.
      */
     public void reinitialiserHistorique() {
         historique.clear();
     }
     
     /**
-     * retourne l'historique des mouvements
-     * 
-     * @return la liste des mouvements effectués
+     * Retourne l'historique des mouvements.
+     *
+     * @return liste des mouvements effectués
      */
     public ArrayList<Mouvement> getHistorique() {
         return historique;
     }
     
     /**
-     * affiche le plateau sous forme textuelle (pour debug)
-     * 
+     * Retourne une représentation textuelle du plateau (debug).
+     *
      * @return représentation textuelle du plateau
      */
     @Override

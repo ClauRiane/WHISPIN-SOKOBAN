@@ -1,41 +1,46 @@
 /**
- * représente un mouvement effectué dans le jeu Sokoban
- * un mouvement peut être un simple déplacement du personnage ou un déplacement
- * qui pousse une boite. Cette classe permet de stocker l'information nécessaire
- * pour annuler le mouvement (Ctrl+Z)
+ * Représente un mouvement effectué dans le jeu Sokoban.
+ * Un mouvement peut être un déplacement simple ou une poussée de boîte.
+ * Cette classe stocke les informations nécessaires pour annuler un coup.
  */
 public class Mouvement {
 
-    /** la direction du mouvement */
+    /** Direction du mouvement. */
     private final Direction direction;
 
-    /** la position de départ du personnage (nullable pour les mouvements chargés depuis persistance) */
+    /** Position de départ du personnage (nullable pour la persistance). */
     private final Position positionDepart;
 
-    /** la position d'arrivée du personnage (nullable pour les mouvements chargés depuis persistance) */
+    /** Position d'arrivée du personnage (nullable pour la persistance). */
     private final Position positionArrivee;
 
-    /** indique si ce mouvement a poussé une boite */
+    /** Indique si ce mouvement pousse une boîte. */
     private final boolean aPousseeBoite;
 
-    /** position de la boite avant le mouvement (null si pas de poussée ou persistance) */
+    /** Position de la boîte avant le mouvement (null si non applicable). */
     private final Position positionBoiteAvant;
 
-    /** position de la boite après le mouvement (null si pas de poussée ou persistance) */
+    /** Position de la boîte après le mouvement (null si non applicable). */
     private final Position positionBoiteApres;
 
-    /** indique si le personnage était sur une cible avant le mouvement */
+    /** Indique si le personnage était sur une cible avant le mouvement. */
     private final boolean personnageSurCibleAvant;
 
-    /** indique si la boite était sur une cible avant le mouvement */
+    /** Indique si la boîte était sur une cible avant le mouvement. */
     private final boolean boiteSurCibleAvant;
 
+    /**
+     * Construit un mouvement simple (sans poussée).
+     */
     public Mouvement(Direction direction, Position positionDepart,
                      Position positionArrivee, boolean personnageSurCibleAvant) {
         this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
              false, null, null, false);
     }
 
+    /**
+     * Construit un mouvement complet, avec ou sans poussée.
+     */
     public Mouvement(Direction direction, Position positionDepart,
                      Position positionArrivee, boolean personnageSurCibleAvant,
                      boolean aPousseeBoite, Position positionBoiteAvant,
@@ -54,7 +59,7 @@ public class Mouvement {
     }
 
     /**
-     * constructeur utilitaire pour les mouvements venant d'un fichier de persistance.
+     * Construit un mouvement minimal pour les données de persistance.
      */
     public Mouvement(Direction direction, boolean aPousseeBoite) {
         this(direction, null, null, false, aPousseeBoite, null, null, false);
@@ -93,7 +98,7 @@ public class Mouvement {
     }
 
     /**
-     * format persistance moderne: u/d/l/r, majuscule si poussée de boite.
+     * Retourne le code moderne de persistance (u/d/l/r, majuscule si poussée).
      */
     public char toLettre() {
         char lettre = direction.toLettre();
@@ -101,7 +106,7 @@ public class Mouvement {
     }
 
     /**
-     * compatibilité legacy: H/B/G/D.
+     * Retourne le code legacy de persistance (H/B/G/D).
      */
     public char obtenirCode() {
         switch (direction) {
@@ -119,7 +124,7 @@ public class Mouvement {
     }
 
     /**
-     * Accepte les formats legacy H/B/G/D et moderne u/d/l/r (+ majuscules pour poussée).
+     * Construit un mouvement depuis un code legacy ou moderne.
      */
     public static Mouvement depuisCode(char code) {
         boolean poussee = Character.isUpperCase(code) && "UDLR".indexOf(code) >= 0;

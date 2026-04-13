@@ -1,29 +1,28 @@
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * Représente une case vide dans le jeu Sokoban
- * Une case vide est traversable par le personnage et les boîtes
- * 
+ * Représente une case vide dans le jeu Sokoban.
+ * Une case vide est traversable par le personnage et les boîtes.
  */
 public final class CaseVide extends Case {
     
-    // instance unique 
+    // Une instance unique partagée suffit pour les cases vides.
     private static final CaseVide INSTANCE = new CaseVide();
     
     /**
-     * constructeur privé pour empêcher une instance directe
-     * utiliser getInstance() à la place
+     * Constructeur privé pour empêcher l'instanciation directe.
+     * Utiliser getInstance() à la place.
      */
     private CaseVide() {
         super(0, 0);
-        // les cases vides sont inchangeables
+        // Les cases vides sont immuables.
         
     }
     
     /**
-     * retourne l'instance unique de CaseVide
-     * 
+     * Retourne l'unique instance de case vide.
+     *
+     * @return l'instance partagée de case vide
      */
     public static CaseVide getInstance() {
         return INSTANCE;
@@ -40,8 +39,8 @@ public final class CaseVide extends Case {
     }
     
     /**
-     * une case vide n'est pas poussable
-     * 
+     * Indique qu'une case vide n'est pas poussable.
+     *
      * @return false
      */
     @Override
@@ -50,8 +49,8 @@ public final class CaseVide extends Case {
     }
     
     /**
-     * retourne le symbole asci de la case vide
-     * 
+     * Retourne le symbole ASCII de la case vide.
+     *
      * @return ' ' (espace)
      */
     @Override
@@ -60,8 +59,8 @@ public final class CaseVide extends Case {
     }
     
     /**
-     * retourne une version textuelle de la case vide
-     * 
+     * Retourne une représentation textuelle de la case vide.
+     *
      * @return "CaseVide[ ]"
      */
     @Override
@@ -70,10 +69,10 @@ public final class CaseVide extends Case {
     }
     
     /**
-     * deux cases vides sont toujours égales (même instance)
-     * 
-     * @param obj l'objet à comparer
-     * @return true si obj est une CaseVide false sinon
+     * Compare cette case vide à un autre objet.
+     *
+     * @param obj objet à comparer
+     * @return true si obj est une case vide, false sinon
      */
     @Override
     public boolean equals(Object obj) {
@@ -81,9 +80,9 @@ public final class CaseVide extends Case {
     }
     
     /**
-     * le hashCode est constant pour toutes les cases vides.
-     * 
-     * @return un hashcode constant
+     * Retourne un hashCode constant pour les cases vides.
+     *
+     * @return hashCode de la classe
      */
     @Override
     public int hashCode() {
@@ -95,15 +94,4 @@ public final class CaseVide extends Case {
         return Color.web("#e9d8a6");
     }
 
-    public void dessiner(GraphicsContext gc, double x, double y, double taille) {
-        gc.setFill(Color.web("#f2dfb4"));
-        gc.fillRect(x, y, taille, taille);
-        gc.setFill(Color.web("#d6be8b"));
-        double pas = Math.max(6, taille * 0.22);
-        for (double offsetY = pas * 0.5; offsetY < taille; offsetY += pas) {
-            for (double offsetX = pas * 0.5; offsetX < taille; offsetX += pas) {
-                gc.fillOval(x + offsetX - 1.5, y + offsetY - 1.5, 3, 3);
-            }
-        }
-    }
 }

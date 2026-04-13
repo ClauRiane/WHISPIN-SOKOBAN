@@ -1,38 +1,36 @@
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
  * Représente un mur dans le jeu Sokoban.
- * Un mur est un élément statique et immutable qui bloque tous les déplacements.
+ * Un mur est un élément statique et immuable qui bloque tous les déplacements.
  * Il ne peut être ni traversé ni poussé.
- * 
  */
 public final class CaseMur extends Case {
     
-    // comme tous les murs sont identiques on peut utiliser une seule instance
+    // Comme tous les murs sont identiques, une seule instance suffit.
     private static final CaseMur INSTANCE = new CaseMur();
     
     /**
-     * constructeur privé pour empêcher une instance directe
-     * utiliser getInstance() à la place
+     * Constructeur privé pour empêcher l'instanciation directe.
+     * Utiliser getInstance() à la place.
      */
     private CaseMur() {
         super(0, 0);
-        // Les murs sont inchamgeables donc on met rien ici
+        // Les murs sont immuables.
     }
     
     /**
-     * Retourne l'instance unique de Mur 
-     * 
-     * @return l'instance unique de Mur
+     * Retourne l'unique instance de mur.
+     *
+     * @return l'instance partagée de mur
      */
     public static CaseMur getInstance() {
         return INSTANCE;
     }
     
     /**
-     * un mur n'est jamais traversable
-     * 
+     * Indique qu'un mur n'est pas traversable.
+     *
      * @return false
      */
     @Override
@@ -41,8 +39,8 @@ public final class CaseMur extends Case {
     }
     
     /**
-     * un mur n'est jamais poussable
-     * 
+     * Indique qu'un mur n'est pas poussable.
+     *
      * @return false
      */
     @Override
@@ -51,8 +49,8 @@ public final class CaseMur extends Case {
     }
     
     /**
-     * retourne le symbole asci du mur
-     * 
+     * Retourne le symbole ASCII du mur.
+     *
      * @return '#'
      */
     @Override
@@ -61,8 +59,8 @@ public final class CaseMur extends Case {
     }
     
     /**
-     * retourne une représentation textuelle du mur
-     * 
+     * Retourne une représentation textuelle du mur.
+     *
      * @return "Mur[#]"
      */
     @Override
@@ -71,10 +69,10 @@ public final class CaseMur extends Case {
     }
     
     /**
-     * deux murs sont toujours égaux (même instance)
-     * 
-     * @param obj l'objet à comparer
-     * @return true si obj est un Mur false sinon
+     * Compare ce mur à un autre objet.
+     *
+     * @param obj objet à comparer
+     * @return true si obj est un mur, false sinon
      */
     @Override
     public boolean equals(Object obj) {
@@ -82,9 +80,9 @@ public final class CaseMur extends Case {
     }
     
     /**
-     * le hashCode est constant pour tous les murs
-     * 
-     * @return un hashcode 
+     * Retourne un hashCode constant pour les murs.
+     *
+     * @return hashCode de la classe
      */
     @Override
     public int hashCode() {
@@ -96,25 +94,4 @@ public final class CaseMur extends Case {
         return Color.web("#85929a");
     }
 
-    public void dessiner(GraphicsContext gc, double x, double y, double taille) {
-        gc.setFill(Color.web("#5c6770"));
-        gc.fillRoundRect(x, y, taille, taille, 8, 8);
-
-        double hauteurBrique = Math.max(4, taille * 0.24);
-        gc.setStroke(Color.web("#3d4650"));
-        gc.setLineWidth(Math.max(1.0, taille * 0.02));
-        for (double offsetY = hauteurBrique; offsetY < taille; offsetY += hauteurBrique) {
-            gc.strokeLine(x, y + offsetY, x + taille, y + offsetY);
-        }
-
-        double largeurBrique = Math.max(8, taille * 0.35);
-        boolean decale = false;
-        for (double offsetY = 0; offsetY < taille; offsetY += hauteurBrique) {
-            double depart = decale ? largeurBrique * 0.5 : 0;
-            for (double offsetX = depart; offsetX < taille; offsetX += largeurBrique) {
-                gc.strokeLine(x + offsetX, y + offsetY, x + offsetX, y + Math.min(offsetY + hauteurBrique, taille));
-            }
-            decale = !decale;
-        }
-    }
 }

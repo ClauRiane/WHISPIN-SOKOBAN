@@ -1,7 +1,6 @@
 /**
- * Enum représentant les quatre directions de déplacement dans le jeu 
- * Chaque direction contient son delta en x et y pour faciliter les calculs de position
- * 
+ * Représente les quatre directions de déplacement du jeu.
+ * Chaque direction contient son delta en x et en y.
  */
 public enum Direction {
     
@@ -17,73 +16,89 @@ public enum Direction {
     /** vers la droite (x augmente) */
     DROITE(1, 0, "Droite", "→");
     
-    /** Déplacement en x */
-    private final int X;
+    /** Déplacement sur l'axe x. */
+    private final int deltaX;
     
-    /** Déplacement en y */
-    private final int Y;
+    /** Déplacement sur l'axe y. */
+    private final int deltaY;
     
-    /** Nom de la direction */
+    /** Nom lisible de la direction. */
     private final String nom;
     
-    /** Symbole de la direction */
+    /** Symbole de la direction. */
     private final String symbole;
     
     /**
-     * constructeur de Direction
-     * 
-     * @param X le déplacement en x
-     * @param Y le déplacement en y
-     * @param nom le nom de la direction
-     * @param symbole le symbole de la direction
+     * Construit une direction.
+     *
+     * @param deltaX déplacement en x
+     * @param deltaY déplacement en y
+     * @param nom nom de la direction
+     * @param symbole symbole de la direction
      */
-    Direction(int X, int Y, String nom, String symbole) {
-        this.X = X;
-        this.Y = Y;
+    Direction(int deltaX, int deltaY, String nom, String symbole) {
+        this.deltaX = deltaX;
+        this.deltaY = deltaY;
         this.nom = nom;
         this.symbole = symbole;
     }
     
     /**
-     * retourne le déplacement en x pour cette direction
-     * 
-     * @return  x (-1, 0 ou 1)
+     * Retourne le déplacement en x.
+     *
+     * @return valeur x (-1, 0 ou 1)
      */
+    public int getDeltaX() {
+        return deltaX;
+    }
+    
+    /**
+     * Retourne le déplacement en y.
+     *
+     * @return valeur y (-1, 0 ou 1)
+     */
+    public int getDeltaY() {
+        return deltaY;
+    }
+
+    /**
+     * @deprecated Utiliser getDeltaX().
+     */
+    @Deprecated
     public int getgX() {
-        return X;
+        return getDeltaX();
     }
-    
+
     /**
-     * retourne le déplacement en y pour cette direction
-     * 
-     * @return  y (-1, 0 ou 1)
+     * @deprecated Utiliser getDeltaY().
      */
+    @Deprecated
     public int getgY() {
-        return Y;
+        return getDeltaY();
     }
     
     /**
-     * retourne le nom de la direction
-     * 
-     * @return le nom ("Haut", "Bas", "Gauche", "Droite")
+     * Retourne le nom de la direction.
+     *
+     * @return nom ("Haut", "Bas", "Gauche", "Droite")
      */
     public String getNom() {
         return nom;
     }
     
     /**
-     * retourne le symbole de la direction
-     * 
-     * @return le symbole (↑, ↓, ←, →)
+     * Retourne le symbole de la direction.
+     *
+     * @return symbole (↑, ↓, ←, →)
      */
     public String getSymbole() {
         return symbole;
     }
     
     /**
-     * retourne la direction opposée
-     * 
-     * @return la direction opposée (HAUT↔BAS, GAUCHE↔DROITE)
+     * Retourne la direction opposée.
+     *
+     * @return direction opposée (HAUT↔BAS, GAUCHE↔DROITE)
      */
     public Direction getOpposee() {
         switch (this) {
@@ -96,29 +111,28 @@ public enum Direction {
     }
     
     /**
-     * vérifie si cette direction est horizontale
-     * 
-     * @return true si la direction est GAUCHE ou DROITE, false sinon
+     * Indique si la direction est horizontale.
+     *
+     * @return true pour GAUCHE ou DROITE, false sinon
      */
     public boolean estHorizontale() {
         return this == GAUCHE || this == DROITE;
     }
     
     /**
-     * vérifie si cette direction est verticale
-     * 
-     * @return true si la direction est HAUT ou BAS, false sinon
+     * Indique si la direction est verticale.
+     *
+     * @return true pour HAUT ou BAS, false sinon
      */
     public boolean estVerticale() {
         return this == HAUT || this == BAS;
     }
     
     /**
-     * convertit une lettre en direction (pour la persistance/solutions)
-     * Format standard Sokoban : u=up, d=down, l=left, r=right
-     * 
-     * @param lettre la lettre représentant la direction ('u', 'd', 'l', 'r')
-     * @return la Direction correspondante
+     * Convertit une lettre en direction (format Sokoban: u, d, l, r).
+     *
+     * @param lettre lettre représentant la direction
+     * @return direction correspondante
      * @throws IllegalArgumentException si la lettre n'est pas valide
      */
     public static Direction fromLettre(char lettre) {
@@ -132,10 +146,9 @@ public enum Direction {
     }
     
     /**
-     * convertit cette direction en lettre (pour la persistance/solutions)
-     * format standard Sokoban : u=up, d=down, l=left, r=right
-     * 
-     * @return la lettre représentant la direction
+     * Convertit cette direction en lettre (format Sokoban: u, d, l, r).
+     *
+     * @return lettre représentant la direction
      */
     public char toLettre() {
         switch (this) {
@@ -148,9 +161,9 @@ public enum Direction {
     }
     
     /**
-     * retourne une représentation textuelle de la direction
-     * 
-     * @return le symbole et le nom de la direction
+     * Retourne une représentation textuelle de la direction.
+     *
+     * @return symbole et nom de la direction
      */
     @Override
     public String toString() {

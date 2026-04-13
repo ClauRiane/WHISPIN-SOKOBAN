@@ -5,15 +5,15 @@ public final class GestionEntreeJeu {
     private GestionEntreeJeu() {
     }
 
-    public static void gererTouche(KeyEvent ev, Plateau plateau, ControleurAnimation controleurAnimation, long maintenantNs) {
-        boolean changement = false;
-        KeyCode touche = ev.getCode();
+    public static void gererTouche(KeyEvent evenementTouche, Plateau plateau, ControleurAnimation controleurAnimation, long maintenantNs) {
+        boolean actionEffectuee = false;
+        KeyCode touche = evenementTouche.getCode();
         Direction directionTentative = null;
-        boolean poussaitUneBoite = false;
+        boolean vaPousserUneBoite = false;
 
-        if (ev.isControlDown() && touche == KeyCode.Z) {
-            changement = plateau.annulerDernierMouvement();
-            if (changement) {
+        if (evenementTouche.isControlDown() && touche == KeyCode.Z) {
+            actionEffectuee = plateau.annulerDernierMouvement();
+            if (actionEffectuee) {
                 controleurAnimation.notifierAnnulation(plateau.estGagne(), maintenantNs);
             }
         } else {
@@ -22,27 +22,27 @@ public final class GestionEntreeJeu {
                 case Z:
                 case W:
                     directionTentative = Direction.HAUT;
-                    poussaitUneBoite = tentativePoussee(plateau, directionTentative);
-                    changement = plateau.deplacer(Direction.HAUT);
+                    vaPousserUneBoite = plateau.vaPousserBoite(directionTentative);
+                    actionEffectuee = plateau.deplacer(Direction.HAUT);
                     break;
                 case DOWN:
                 case S:
                     directionTentative = Direction.BAS;
-                    poussaitUneBoite = tentativePoussee(plateau, directionTentative);
-                    changement = plateau.deplacer(Direction.BAS);
+                    vaPousserUneBoite = plateau.vaPousserBoite(directionTentative);
+                    actionEffectuee = plateau.deplacer(Direction.BAS);
                     break;
                 case LEFT:
                 case Q:
                 case A:
                     directionTentative = Direction.GAUCHE;
-                    poussaitUneBoite = tentativePoussee(plateau, directionTentative);
-                    changement = plateau.deplacer(Direction.GAUCHE);
+                    vaPousserUneBoite = plateau.vaPousserBoite(directionTentative);
+                    actionEffectuee = plateau.deplacer(Direction.GAUCHE);
                     break;
                 case RIGHT:
                 case D:
                     directionTentative = Direction.DROITE;
-                    poussaitUneBoite = tentativePoussee(plateau, directionTentative);
-                    changement = plateau.deplacer(Direction.DROITE);
+                    vaPousserUneBoite = plateau.vaPousserBoite(directionTentative);
+                    actionEffectuee = plateau.deplacer(Direction.DROITE);
                     break;
                 default:
                     break;
@@ -50,22 +50,11 @@ public final class GestionEntreeJeu {
         }
 
         if (directionTentative != null) {
-            if (changement) {
-                controleurAnimation.notifierDeplacementReussi(directionTentative, poussaitUneBoite, plateau.estGagne(), maintenantNs);
+            if (actionEffectuee) {
+                controleurAnimation.notifierDeplacementReussi(directionTentative, vaPousserUneBoite, plateau.estGagne(), maintenantNs);
             } else {
                 controleurAnimation.notifierDeplacementBloque(directionTentative, maintenantNs);
             }
         }
-    }
-
-    private static boolean tentativePoussee(Plateau plateau, Direction direction) {
-        if (!plateau.peutSeDeplacer(direction)) {
-            return false;
-        }
-        Position prochainePos = plateau.getPositionPersonnage().deplacer(direction);
-        if (!plateau.estDansLimites(prochainePos)) {
-            return false;
-        }
-        return plateau.getCase(prochainePos).estBoite();
     }
 }
