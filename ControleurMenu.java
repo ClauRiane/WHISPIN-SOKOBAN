@@ -82,7 +82,7 @@ public class ControleurMenu {
             };
             case PARAMETRES -> new String[] {
                 "Parametres graphiques et sonores",
-                "(ecran de base, extensible ensuite).",
+                "(pas encore implémenté).",
                 "",
                 "Conseil: lance une partie via 'Jouer'",
                 "pour tester les animations."

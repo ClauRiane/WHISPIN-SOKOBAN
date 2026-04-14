@@ -2,7 +2,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * Rendu visuel de la boîte transformée en fleur.
+ * Rendu visuel de la boîte (fleur).
  * Gère aussi l'aspiration dans la ruche puis l'effet de miel.
  */
 public final class RenduBoite {
