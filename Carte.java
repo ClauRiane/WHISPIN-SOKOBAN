@@ -1,5 +1,5 @@
 import java.util.ArrayList;
-
+/*classe qui nous permet de representer un plateau de jeu grace a une double ArrayList*/
 public class Carte<T> {
 
     private ArrayList<ArrayList<T>> carte;
