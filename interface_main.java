@@ -16,7 +16,7 @@ public class interface_main extends Application {
             stage.setScene(sceneJeu);
         });
 
-        stage.setTitle("Sokoban");
+        stage.setTitle("Whispin Parabox");
         stage.setScene(menuPrincipal.getScene());
         stage.show();
         menuPrincipal.reprendreFocus();

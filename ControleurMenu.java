@@ -74,10 +74,10 @@ public class ControleurMenu {
     public String[] getLignesEcranSecondaire() {
         return switch (ecranActuel) {
             case REGLES -> new String[] {
-                "- Deplace l'abeille avec ZQSD.",
-                "- Pousse les fleurs vers les ruches.",
-                "- Une fleur ne peut pas traverser un mur.",
-                "- Gagne quand toutes les fleurs sont dans les ruches.",
+                "- Deplace le cube joueur avec ZQSD.",
+                "- Pousse les cubes vers les portails.",
+                "- Un cube ne peut pas traverser un mur.",
+                "- Gagne quand tous les cubes sont dans les portails.",
                 "- Ctrl+Z pour annuler le dernier coup."
             };
             case PARAMETRES -> new String[] {
@@ -85,7 +85,7 @@ public class ControleurMenu {
                 "(pas encore implémenté).",
                 "",
                 "Conseil: lance une partie via 'Jouer'",
-                "pour tester les animations."
+                "pour tester le rendu Parabox."
             };
             case SAUVEGARDE -> new String[] {
                 "Les sauvegardes du projet sont stockees dans:",

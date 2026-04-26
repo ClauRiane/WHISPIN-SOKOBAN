@@ -1,10 +1,8 @@
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
 
 public final class PlateauTexteFichier {
     private PlateauTexteFichier() {
@@ -55,7 +53,7 @@ public final class PlateauTexteFichier {
             }
         }
 
-        List<List<Case>> grillePlateau = new ArrayList<>();
+        ArrayList<ArrayList<Case>> grillePlateau = new ArrayList<>();
         int nombrePersonnages = 0;
 
         for (String ligneTexte : lignesPlateau) {

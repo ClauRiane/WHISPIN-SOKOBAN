@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -40,6 +41,7 @@ public class MenuPrincipal {
     private final Scene scene;
     private final Bouton[] boutonsMenu;
     private final Bouton boutonRetourSecondaire = new Bouton();
+    private final Image imageFond;
 
     /**
      * Crée le menu principal.
@@ -50,6 +52,15 @@ public class MenuPrincipal {
         this.actionJouer = actionJouer;
         this.controleurMenu = new ControleurMenu();
         this.boutonsMenu = new Bouton[controleurMenu.getNombreOptions()];
+
+        Image img = null;
+        try {
+            var url = MenuPrincipal.class.getResource("/fond_principale_ecran-frame0.png");
+            if (url != null) {
+                img = new Image(url.toExternalForm());
+            }
+        } catch (Exception ignored) {}
+        this.imageFond = img;
         for (int i = 0; i < boutonsMenu.length; i++) {
             boutonsMenu[i] = new Bouton();
         }
@@ -91,12 +102,16 @@ public class MenuPrincipal {
         gc.setFill(FOND);
         gc.fillRect(0, 0, largeur, hauteur);
 
-        gc.setFill(Color.web("#22463b", 0.70));
-        gc.fillOval(-largeur * 0.08, -hauteur * 0.10, largeur * 0.34, hauteur * 0.42);
-        gc.setFill(Color.web("#2f6a58", 0.30));
-        gc.fillOval(largeur * 0.72, hauteur * 0.58, largeur * 0.26, hauteur * 0.28);
-        gc.setFill(Color.web("#f2d974", 0.10));
-        gc.fillOval(largeur * 0.78, hauteur * 0.10, largeur * 0.12, hauteur * 0.17);
+        if (imageFond != null && imageFond.isBackgroundLoading() == false && !imageFond.isError()) {
+            gc.drawImage(imageFond, 0, 0, largeur, hauteur);
+        } else {
+            gc.setFill(Color.web("#22463b", 0.70));
+            gc.fillOval(-largeur * 0.08, -hauteur * 0.10, largeur * 0.34, hauteur * 0.42);
+            gc.setFill(Color.web("#2f6a58", 0.30));
+            gc.fillOval(largeur * 0.72, hauteur * 0.58, largeur * 0.26, hauteur * 0.28);
+            gc.setFill(Color.web("#f2d974", 0.10));
+            gc.fillOval(largeur * 0.78, hauteur * 0.10, largeur * 0.12, hauteur * 0.17);
+        }
 
         double panneauLargeur = largeur * 0.72;
         double panneauHauteur = controleurMenu.estSurMenuPrincipal() ? hauteur * 0.72 : hauteur * 0.62;
@@ -118,7 +133,7 @@ public class MenuPrincipal {
         gc.setFill(Color.web("#e8f3ee"));
         gc.setFont(Font.font("SansSerif", FontWeight.BOLD, Math.max(28, largeur * 0.05)));
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.fillText("WHISPIN SOKOBAN", panneauX + panneauLargeur / 2.0, panneauY + panneauHauteur * 0.15);
+        gc.fillText("WHISPIN PARABOX", panneauX + panneauLargeur / 2.0, panneauY + panneauHauteur * 0.15);
         gc.setTextAlign(TextAlignment.LEFT);
 
         if (controleurMenu.estSurMenuPrincipal()) {
@@ -145,7 +160,7 @@ public class MenuPrincipal {
         gc.setFill(Color.web("#d7ece4"));
         gc.setFont(Font.font("SansSerif", FontWeight.NORMAL, Math.max(15, panneauLargeur * 0.022)));
         gc.fillText(
-            "Guide l'abeille, pousse les fleurs et remplis les ruches.",
+            "Deplace le cube joueur et range tous les cubes cibles.",
             panneauX + panneauLargeur / 2.0,
             panneauY + panneauHauteur * 0.25
         );

@@ -1,6 +1,7 @@
 import javafx.animation.AnimationTimer;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.image.Image;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
@@ -20,6 +21,7 @@ public class ControleurPartie {
     private final Canvas canvas;
     private final Scene scene;
     private final AnimationTimer timer;
+    private final Image imageFond;
     private boolean retourMenuDemande;
 
     public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau) {
@@ -30,8 +32,15 @@ public class ControleurPartie {
         this.feuArtifice = new FeuArtifice();
         this.canvas = new Canvas(900, 700);
 
+        Image img = null;
+        try {
+            var url = ControleurPartie.class.getResource("/fond_principale_ecran-frame0.png");
+            if (url != null) img = new Image(url.toExternalForm());
+        } catch (Exception ignored) {}
+        this.imageFond = img;
+
         StackPane racine = new StackPane(canvas);
-        racine.setStyle("-fx-background-color: #ece8dc;");
+        racine.setStyle("-fx-background-color: #1a2b26;");
         this.scene = new Scene(racine, 900, 700);
         this.scene.setFill(FOND);
         this.timer = creerBouclePrincipale();
@@ -88,6 +97,6 @@ public class ControleurPartie {
     }
 
     private void redessiner(long maintenantNs) {
-        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), plateau, controleurAnimation, feuArtifice, maintenantNs);
+        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), plateau, controleurAnimation, feuArtifice, imageFond, maintenantNs);
     }
 }

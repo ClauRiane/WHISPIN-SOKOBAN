@@ -2,7 +2,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 /**
- * Rendu visuel du personnage (abeille).
+ * Rendu visuel du personnage en style minimaliste.
  * Cette classe contient uniquement de la logique d'affichage.
  */
 public final class RenduPersonnage {
@@ -18,156 +18,58 @@ public final class RenduPersonnage {
         ControleurAnimation controleurAnimation,
         long maintenantNs
     ) {
-        // Animation verticale légère pour donner une impression de flottement.
-        double temps = maintenantNs / 1_000_000_000.0;
-        double oscillation = Math.sin(temps * 5.5) * taille * 0.01;
-
-        if (controleurAnimation.getEtat() == ControleurAnimation.Etat.MARCHE) {
-            double phase = Math.min(controleurAnimation.dureeEcouleeEnSecondes(maintenantNs) / ControleurAnimation.DUREE_MARCHE_SECONDES, 1.0);
-            oscillation += Math.sin(Math.PI * phase) * taille * 0.05;
-        } else if (controleurAnimation.getEtat() == ControleurAnimation.Etat.POUSSEE) {
-            double phase = Math.min(controleurAnimation.dureeEcouleeEnSecondes(maintenantNs) / ControleurAnimation.DUREE_POUSSEE_SECONDES, 1.0);
-            oscillation += Math.sin(Math.PI * phase) * taille * 0.03;
-        } else if (controleurAnimation.getEtat() == ControleurAnimation.Etat.BLOQUE) {
-            double phase = Math.min(controleurAnimation.dureeEcouleeEnSecondes(maintenantNs) / ControleurAnimation.DUREE_BLOCAGE_SECONDES, 1.0);
-            oscillation += Math.sin(phase * 22.0) * taille * 0.02;
-        } else if (controleurAnimation.getEtat() == ControleurAnimation.Etat.VICTOIRE) {
-            oscillation += Math.sin(temps * 11.0) * taille * 0.03;
-        }
-
         double cx = x + taille * 0.5;
-        double cy = y + taille * 0.5 - oscillation;
+        double cy = y + taille * 0.5;
 
-        boolean ailesOuvertes = Math.sin(temps * 16.0) >= 0.0;
+        double temps = maintenantNs / 1_000_000_000.0;
+        double ouvertureYeux = 0.24 + 0.10 * (0.5 + 0.5 * Math.sin(temps * 7.5));
+
         Direction direction = controleurAnimation.getDirectionRegard();
-        String[] sprite = spritePourDirection(direction, ailesOuvertes);
-        dessinerSprite(gc, sprite, cx, cy, taille, surCible);
+        dessinerAvatar(gc, cx, cy, taille, surCible, direction, ouvertureYeux);
     }
 
-    private static void dessinerSprite(GraphicsContext gc, String[] sprite, double cx, double cy, double taille, boolean surCible) {
-        int colonnes = sprite[0].length();
-        int lignes = sprite.length;
-        double pixel = Math.max(1.0, Math.min(taille / colonnes, taille / lignes));
-        double largeurSprite = colonnes * pixel;
-        double hauteurSprite = lignes * pixel;
+    private static void dessinerAvatar(
+        GraphicsContext gc,
+        double cx,
+        double cy,
+        double taille,
+        boolean surCible,
+        Direction direction,
+        double ouvertureYeux
+    ) {
+        double corpsTaille = taille * 0.78;
+        double coin = Math.max(6.0, corpsTaille * 0.18);
+        double bord = Math.max(1.5, taille * 0.055);
+        double h2   = bord / 2.0;
+        double corpsX = cx - corpsTaille / 2.0;
+        double corpsY = cy - corpsTaille / 2.0;
 
-        double baseX = cx - largeurSprite / 2.0;
-        double baseY = cy - hauteurSprite / 2.0;
+        // Magenta vif (Patrick's Parabox player color), vert si sur cible
+        Color base = surCible ? Color.web("#88dd44") : Color.web("#dd44aa");
 
-        for (int row = 0; row < lignes; row++) {
-            String ligne = sprite[row];
-            for (int col = 0; col < colonnes; col++) {
-                char c = ligne.charAt(col);
-                Color couleur = couleurPourPixel(c, surCible);
-                if (couleur == null) {
-                    continue;
-                }
-                gc.setFill(couleur);
-                gc.fillRect(baseX + col * pixel, baseY + row * pixel, Math.ceil(pixel), Math.ceil(pixel));
-            }
+        // Fill inseté de bord/2 pour ne pas déborder hors du contour
+        gc.setFill(base);
+        gc.fillRoundRect(corpsX + h2, corpsY + h2, corpsTaille - bord, corpsTaille - bord, coin, coin);
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(bord);
+        gc.strokeRoundRect(corpsX + h2, corpsY + h2, corpsTaille - bord, corpsTaille - bord, coin, coin);
+
+        // Yeux : deux ovales noirs animés (sinus)
+        double regardX = 0.0;
+        double regardY = 0.0;
+        if (direction != null) {
+            regardX = direction.getDeltaX() * corpsTaille * 0.06;
+            regardY = direction.getDeltaY() * corpsTaille * 0.06;
         }
+        // Rayon plus grand pour des yeux bien visibles
+        double dotR  = Math.max(4.0, corpsTaille * 0.15) * ouvertureYeux;
+        double oeilCy = cy + regardY * 0.5;
+        double ecart = corpsTaille * 0.20;
+        gc.setFill(Color.web("#111111"));
+        gc.fillOval(cx - ecart + regardX - dotR, oeilCy - dotR, dotR * 2, dotR * 2);
+        gc.fillOval(cx + ecart + regardX - dotR, oeilCy - dotR, dotR * 2, dotR * 2);
     }
 
-    private static String[] spritePourDirection(Direction direction, boolean ailesOuvertes) {
-        if (direction == null) {
-            direction = Direction.BAS;
-        }
-        String[] base = ailesOuvertes ? spriteHautOuvert() : spriteHautFerme();
-        return switch (direction) {
-            case HAUT -> base;
-            case BAS -> miroirVertical(base);
-            case DROITE -> rotationHoraire(base);
-            case GAUCHE -> rotationAntiHoraire(base);
-        };
-    }
-
-    private static Color couleurPourPixel(char c, boolean surCible) {
-        return switch (c) {
-            case 'K' -> Color.web("#1b2026");
-            case 'W' -> Color.web("#c9dfdd");
-            case 'Y' -> surCible ? Color.web("#ffd765") : Color.web("#f4c244");
-            case 'O' -> Color.web("#ec9e42");
-            case 'B' -> Color.web("#2a1a00");
-            case 'H' -> Color.web("#4a2f14");
-            default -> null;
-        };
-    }
-
-    private static String[] spriteHautOuvert() {
-        return new String[] {
-            ".......KK.......",
-            "......KHHK......",
-            ".....KHHHHK.....",
-            "..KKKKBBBBKKKK..",
-            ".KWWWWYYYYWWWWK.",
-            "KWWWWYYYYYYWWWWK",
-            "KWWWYYBBBBYYWWWK",
-            ".KWWYYYYYYYYWWK.",
-            "..KWWYYOOYYWWK..",
-            "...KYYYYYYYYK...",
-            "...KYYBBBBYYK...",
-            "...KYYYYYYYYK...",
-            "....KYYYYYYK....",
-            ".....KYYYYK.....",
-            "......KYYK......",
-            ".......KK......."
-        };
-    }
-
-    private static String[] spriteHautFerme() {
-        return new String[] {
-            ".......KK.......",
-            "......KHHK......",
-            ".....KHHHHK.....",
-            "...KKBBBBBBKK...",
-            "..KWWWYYYYWWWK..",
-            ".KWWWYYYYYYWWWK.",
-            ".KWWYYBBBBYYWWK.",
-            "..KWYYYYYYYYWK..",
-            "...KWYYOOYYWK...",
-            "...KYYYYYYYYK...",
-            "...KYYBBBBYYK...",
-            "...KYYYYYYYYK...",
-            "....KYYYYYYK....",
-            ".....KYYYYK.....",
-            "......KYYK......",
-            ".......KK......."
-        };
-    }
-
-    private static String[] miroirVertical(String[] sprite) {
-        String[] miroir = new String[sprite.length];
-        for (int i = 0; i < sprite.length; i++) {
-            miroir[i] = sprite[sprite.length - 1 - i];
-        }
-        return miroir;
-    }
-
-    private static String[] rotationHoraire(String[] sprite) {
-        int lignes = sprite.length;
-        int colonnes = sprite[0].length();
-        String[] tourne = new String[colonnes];
-        for (int col = 0; col < colonnes; col++) {
-            char[] ligne = new char[lignes];
-            for (int row = 0; row < lignes; row++) {
-                ligne[row] = sprite[lignes - 1 - row].charAt(col);
-            }
-            tourne[col] = new String(ligne);
-        }
-        return tourne;
-    }
-
-    private static String[] rotationAntiHoraire(String[] sprite) {
-        int lignes = sprite.length;
-        int colonnes = sprite[0].length();
-        String[] tourne = new String[colonnes];
-        for (int col = 0; col < colonnes; col++) {
-            char[] ligne = new char[lignes];
-            for (int row = 0; row < lignes; row++) {
-                ligne[row] = sprite[row].charAt(colonnes - 1 - col);
-            }
-            tourne[col] = new String(ligne);
-        }
-        return tourne;
-    }
+    // Les yeux sont maintenant de simples points dessinés directement dans dessinerAvatar.
 }
