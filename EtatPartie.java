@@ -35,7 +35,7 @@ public class EtatPartie {
         this.coups = coups;
         this.horodatage = horodatage;
         this.lignesPlateau = Collections.unmodifiableList(new ArrayList<>(plateau));
-        this.mouvementsChemin = Collections.unmodifiableList(new ArrayList<>(chemin == null ? List.of() : chemin));
+        this.mouvementsChemin = (new ArrayList<>(chemin == null ? List.of() : chemin));
     }
 
     /**
@@ -69,7 +69,7 @@ public class EtatPartie {
     /**
      * @return la liste des mouvements enregistrés
      */
-    public List<Mouvement> getChemin() {
-        return mouvementsChemin;
+    public ArrayList<Mouvement> getChemin() {
+        return new ArrayList<>(mouvementsChemin);
     }
 }

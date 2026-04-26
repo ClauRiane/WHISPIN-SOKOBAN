@@ -28,7 +28,7 @@ public final class ServicePersistance {
      * @param grille grille à sauvegarder
      * @throws IOException en cas d'erreur d'écriture
      */
-    public static void sauvegarderPlateauDansFichierTexte(Path cheminFichier, List<List<Case>> grillePlateau) throws IOException {
+    public static void sauvegarderPlateauDansFichierTexte(Path cheminFichier, ArrayList<ArrayList<Case>> grillePlateau) throws IOException {
         PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau);
     }
 
@@ -39,8 +39,8 @@ public final class ServicePersistance {
      * @return la grille chargée
      * @throws IOException en cas d'erreur de lecture
      */
-    public static List<List<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
-        return PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
+    public static ArrayList<ArrayList<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
+        return (ArrayList<ArrayList<Case>>) (ArrayList<?>) PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
     }
 
     /**
@@ -80,9 +80,9 @@ public final class ServicePersistance {
         int coups = lireChampEntier(donneesJson.get(CLE_COUPS), CLE_COUPS);
         long horodatage = lireChampLong(donneesJson.get(CLE_HORODATAGE), CLE_HORODATAGE);
 
-        List<String> lignesPlateau = lireChampListeTexte(donneesJson.get(CLE_PLATEAU), CLE_PLATEAU);
-        List<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_CHEMIN), CLE_CHEMIN);
-        List<Mouvement> mouvementsChemin = new ArrayList<>();
+        ArrayList<String> lignesPlateau = lireChampListeTexte(donneesJson.get(CLE_PLATEAU), CLE_PLATEAU);
+        ArrayList<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_CHEMIN), CLE_CHEMIN);
+        ArrayList<Mouvement> mouvementsChemin = new ArrayList<>();
         for (String codeMouvement : codesMouvements) {
             if (codeMouvement.length() != 1) {
                 throw new IllegalArgumentException("Code mouvement invalide: " + codeMouvement);
@@ -100,10 +100,14 @@ public final class ServicePersistance {
      * @param mouvements mouvements à sauvegarder
      * @throws IOException en cas d'erreur d'écriture
      */
-    public static void sauvegarderCheminDansFichierJson(Path cheminFichier, List<Mouvement> listeMouvements) throws IOException {
+    public static void sauvegarderCheminDansFichierJson(Path cheminFichier, ArrayList<Mouvement> listeMouvements) throws IOException {
         Map<String, Object> donneesJson = new LinkedHashMap<>();
 
-        donneesJson.put(CLE_MOUVEMENTS, convertirMouvementsEnCodes(listeMouvements));
+        ArrayList<String> codesMouvements = new ArrayList<>();
+        for (Mouvement mouvement : listeMouvements) {
+            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
+        }
+        donneesJson.put(CLE_MOUVEMENTS, codesMouvements);
         ecrireDansFichierJson(cheminFichier, donneesJson);
     }
 
@@ -114,15 +118,15 @@ public final class ServicePersistance {
      * @return liste des mouvements chargés
      * @throws IOException en cas d'erreur de lecture
      */
-    public static List<Mouvement> chargerCheminDepuisFichierJson(Path cheminFichier) throws IOException {
+    public static ArrayList<Mouvement> chargerCheminDepuisFichierJson(Path cheminFichier) throws IOException {
         Map<String, Object> donneesJson = MAPPER.readValue(
             Files.readString(cheminFichier),
             new TypeReference<Map<String, Object>>() {
             }
         );
-        List<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_MOUVEMENTS), CLE_MOUVEMENTS);
+        ArrayList<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_MOUVEMENTS), CLE_MOUVEMENTS);
 
-        List<Mouvement> mouvementsCharges = new ArrayList<>();
+        ArrayList<Mouvement> mouvementsCharges = new ArrayList<>();
         for (String codeMouvement : codesMouvements) {
             if (codeMouvement.length() != 1) {
                 throw new IllegalArgumentException("Code mouvement invalide: " + codeMouvement);
@@ -160,12 +164,12 @@ public final class ServicePersistance {
         throw new IllegalArgumentException("Champ JSON invalide (long attendu): " + nomChamp);
     }
 
-    private static List<String> lireChampListeTexte(Object valeurChamp, String nomChamp) {
+    private static ArrayList<String> lireChampListeTexte(Object valeurChamp, String nomChamp) {
         if (!(valeurChamp instanceof List<?> listeValeurs)) {
             throw new IllegalArgumentException("Champ JSON invalide (liste attendue): " + nomChamp);
         }
 
-        List<String> resultat = new ArrayList<>();
+        ArrayList<String> resultat = new ArrayList<>();
         for (Object valeurElement : listeValeurs) {
             if (!(valeurElement instanceof String texte)) {
                 throw new IllegalArgumentException("Champ JSON invalide (liste de String attendue): " + nomChamp);

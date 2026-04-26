@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +17,8 @@ public final class PlateauTexteFichier {
      * @return la grille chargée
      * @throws IOException en cas d'erreur de lecture
      */
-    public static List<List<Case>> chargerDepuisFichierTexte(Path cheminFichier) throws IOException {
-        List<String> lignesPlateau = Files.readAllLines(cheminFichier, StandardCharsets.UTF_8);
+    public static ArrayList<ArrayList<Case>> chargerDepuisFichierTexte(Path cheminFichier) throws IOException {
+        ArrayList<String> lignesPlateau = new ArrayList<>(Files.readAllLines(cheminFichier, StandardCharsets.UTF_8));
         return convertirLignesVersGrille(lignesPlateau);
     }
 
@@ -28,8 +29,8 @@ public final class PlateauTexteFichier {
      * @param grille grille à sauvegarder
      * @throws IOException en cas d'erreur d'écriture
      */
-    public static void sauvegarderDansFichierTexte(Path cheminFichier, List<List<Case>> grillePlateau) throws IOException {
-        List<String> lignesPlateau = convertirGrilleVersLignes(grillePlateau);
+    public static void sauvegarderDansFichierTexte(Path cheminFichier, ArrayList<ArrayList<Case>> grillePlateau) throws IOException {
+        ArrayList<String> lignesPlateau = convertirGrilleVersLignes(grillePlateau);
         if (cheminFichier.getParent() != null) {
             Files.createDirectories(cheminFichier.getParent());
         }
@@ -42,7 +43,7 @@ public final class PlateauTexteFichier {
      * @param lignes lignes du plateau
      * @return grille correspondante
      */
-    public static List<List<Case>> convertirLignesVersGrille(List<String> lignesPlateau) {
+    public static ArrayList<ArrayList<Case>> convertirLignesVersGrille(ArrayList<String> lignesPlateau) {
         if (lignesPlateau == null || lignesPlateau.isEmpty()) {
             throw new IllegalArgumentException("Le fichier de plateau est vide");
         }
@@ -58,7 +59,7 @@ public final class PlateauTexteFichier {
         int nombrePersonnages = 0;
 
         for (String ligneTexte : lignesPlateau) {
-            List<Case> elementsDeLigne = new ArrayList<>();
+            ArrayList<Case> elementsDeLigne = new ArrayList<>();
             for (int i = 0; i < largeurMax; i++) {
                 // Complète les lignes trop courtes pour garantir une grille rectangulaire.
                 char symbole = i < ligneTexte.length() ? ligneTexte.charAt(i) : ' ';
@@ -84,13 +85,13 @@ public final class PlateauTexteFichier {
      * @param grille grille à convertir
      * @return lignes texte du plateau
      */
-    public static List<String> convertirGrilleVersLignes(List<List<Case>> grillePlateau) {
+    public static ArrayList<String> convertirGrilleVersLignes(ArrayList<ArrayList<Case>> grillePlateau) {
         if (grillePlateau == null || grillePlateau.isEmpty()) {
             throw new IllegalArgumentException("La grille est vide");
         }
 
-        List<String> lignesPlateau = new ArrayList<>();
-        for (List<Case> elementsDeLigne : grillePlateau) {
+        ArrayList<String> lignesPlateau = new ArrayList<>();
+        for (ArrayList<Case> elementsDeLigne : grillePlateau) {
             StringBuilder ligneConstruite = new StringBuilder();
             for (Case elementCourant : elementsDeLigne) {
                 ligneConstruite.append(elementCourant.getSymbole());
