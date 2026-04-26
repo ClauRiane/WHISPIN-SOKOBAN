@@ -13,8 +13,8 @@ public class Jeu {
 
     private static Plateau chargerPlateauDeTest() {
         try {
-            List<List<Case>> grille = PlateauTexteFichier.chargerDepuisFichierTexte(CHEMIN_CARTE_PAR_DEFAUT);
-            return new Plateau(convertirEnArrayList(grille));
+            ArrayList<ArrayList<Case>> grille = PlateauTexteFichier.chargerDepuisFichierTexte(CHEMIN_CARTE_PAR_DEFAUT);
+            return new Plateau(grille);
         } catch (Exception e) {
             throw new IllegalStateException("Erreur : impossible de charger la carte !", e);
         }
