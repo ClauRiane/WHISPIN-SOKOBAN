@@ -3,22 +3,15 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class interface_main extends Application {
-    private Jeu jeu;
     private MenuPrincipal menuPrincipal;
 
     @Override
     public void start(Stage stage) {
-        jeu = new Jeu();
-
-        menuPrincipal = new MenuPrincipal((sceneMenu, plateauCharge) -> {
-            Plateau plateauPourJouer;
-            if (plateauCharge != null) {
-                plateauPourJouer = plateauCharge;
-            } else {
-                jeu = new Jeu();
-                plateauPourJouer = jeu.getPlateau();
+        menuPrincipal = new MenuPrincipal((sceneMenu, plateauCharge, niveauSuivant) -> {
+            if (plateauCharge == null) {
+                return;
             }
-            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, plateauPourJouer);
+            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, plateauCharge, niveauSuivant);
             stage.setScene(sceneJeu);
         });
 

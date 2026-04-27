@@ -1,4 +1,5 @@
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -41,7 +42,12 @@ public class MenuPrincipal {
         }
     }
 
-    private final BiConsumer<Scene, Plateau> actionJouer;
+    @FunctionalInterface
+    public interface ActionJeu {
+        void lancer(Scene scene, Plateau plateau, Supplier<ControleurPartie.NiveauSuivant> niveauSuivant);
+    }
+
+    private final ActionJeu actionJouer;
     private final ControleurMenu controleurMenu;
     private final Canvas canvas;
     private final Scene scene;
@@ -58,7 +64,7 @@ public class MenuPrincipal {
      *
      * @param actionJouer action appelée quand l'utilisateur choisit "Jouer"
      */
-    public MenuPrincipal(BiConsumer<Scene, Plateau> actionJouer) {
+    public MenuPrincipal(ActionJeu actionJouer) {
         this.actionJouer = actionJouer;
         this.controleurMenu = new ControleurMenu();
         this.boutonsMenu = new Bouton[controleurMenu.getNombreOptions()];
@@ -405,7 +411,7 @@ public class MenuPrincipal {
                 }
                 redessiner();
             }
-            case JOUER -> actionJouer.accept(scene, null);
+            case JOUER -> actionJouer.lancer(scene, null, null);
             case QUITTER -> Platform.exit();
         }
     }
@@ -429,10 +435,27 @@ public class MenuPrincipal {
             int index = controleurMenu.getIndexSelectionNiveau();
             Path chemin = niveauxDisponibles.get(index);
             Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-            actionJouer.accept(scene, plateauCharge);
+            actionJouer.lancer(scene, plateauCharge, creerChaineFournisseur(index + 1));
         } catch (Exception e) {
             System.err.println("[Niveaux] Impossible de charger le niveau: " + e.getMessage());
         }
+    }
+
+    private Supplier<ControleurPartie.NiveauSuivant> creerChaineFournisseur(int index) {
+        if (index >= niveauxDisponibles.size()) {
+            return null;
+        }
+        Path chemin = niveauxDisponibles.get(index);
+        Supplier<ControleurPartie.NiveauSuivant> apres = creerChaineFournisseur(index + 1);
+        return () -> {
+            try {
+                Plateau p = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
+                return new ControleurPartie.NiveauSuivant(p, apres);
+            } catch (Exception e) {
+                System.err.println("[Niveaux] Impossible de charger le niveau " + chemin.getFileName() + ": " + e.getMessage());
+                return null;
+            }
+        };
     }
 
     private void rafraichirSauvegardes() {
@@ -454,7 +477,7 @@ public class MenuPrincipal {
             int index = controleurMenu.getIndexSelectionSauvegarde();
             Path chemin = sauvegardesDisponibles.get(index).getChemin();
             Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-            actionJouer.accept(scene, plateauCharge);
+            actionJouer.lancer(scene, plateauCharge, null);
         } catch (Exception e) {
             System.err.println("[Persistance] Impossible de charger la sauvegarde: " + e.getMessage());
         }

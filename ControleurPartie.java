@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Contrôleur principal d'une partie en cours.
@@ -19,6 +20,7 @@ import java.util.Optional;
 public class ControleurPartie {
     private static final Color FOND = Color.web("#ece8dc");
 
+    public record NiveauSuivant(Plateau plateau, Supplier<NiveauSuivant> apres) {}
     private final Stage stage;
     private final Scene sceneMenu;
     private final Plateau plateau;
@@ -28,13 +30,15 @@ public class ControleurPartie {
     private final Scene scene;
     private final AnimationTimer timer;
     private final Image imageFond;
+    private final Supplier<NiveauSuivant> niveauSuivantFournisseur;
     private boolean retourMenuDemande;
     private boolean sauvegardeAutoEffectuee;
 
-    public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau) {
+    public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau, Supplier<NiveauSuivant> niveauSuivant) {
         this.stage = stage;
         this.sceneMenu = sceneMenu;
         this.plateau = plateau;
+        this.niveauSuivantFournisseur = niveauSuivant;
         this.controleurAnimation = new ControleurAnimation();
         this.feuArtifice = new FeuArtifice();
         this.canvas = new Canvas(900, 700);
@@ -79,7 +83,7 @@ public class ControleurPartie {
                 feuArtifice.mettreAJour(plateau.estGagne(), scene.getWidth(), scene.getHeight(), maintenantNs);
                 if (plateau.estGagne() && feuArtifice.doitFermer(maintenantNs) && !retourMenuDemande) {
                     stop();
-                    retournerAuMenu();
+                    passerAuNiveauSuivantOuMenu();
                     return;
                 }
 
@@ -154,6 +158,20 @@ public class ControleurPartie {
     private void sauvegarderAvantRetour() {
         Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
         sauvegarderVersChemin(chemin, "Sauvegarde avant retour menu", "sauvegarde avant retour");
+    }
+
+    private void passerAuNiveauSuivantOuMenu() {
+        retourMenuDemande = true;
+        timer.stop();
+        if (niveauSuivantFournisseur != null) {
+            NiveauSuivant ns = niveauSuivantFournisseur.get();
+            if (ns != null) {
+                stage.setScene(DeuxiemeScene.creerScene(stage, sceneMenu, ns.plateau(), ns.apres()));
+                return;
+            }
+        }
+        stage.setScene(sceneMenu);
+        sceneMenu.getRoot().requestFocus();
     }
 
     private void retournerAuMenu() {
