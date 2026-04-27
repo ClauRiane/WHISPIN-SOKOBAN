@@ -8,3 +8,6 @@ bin/
 
 # Temporary files
 effacer_apres
+
+# Sauvegardes
+sauvegardes/
