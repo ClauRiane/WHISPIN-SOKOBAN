@@ -132,6 +132,29 @@ public final class ServicePersistance {
         return niveaux;
     }
 
+    /**
+     * Détecte si un fichier niveau contient plusieurs mondes (Sokoban récursif).
+     * Un fichier est considéré multi-monde s'il contient au moins 2 en-têtes "lettre taille".
+     */
+    public static boolean estFichierMultiMonde(Path cheminFichier) throws IOException {
+        java.util.regex.Pattern pat = java.util.regex.Pattern.compile("^([A-Za-z])\\s+(\\d+)$");
+        long compteEntetes = Files.lines(cheminFichier)
+            .map(String::trim)
+            .filter(l -> pat.matcher(l).matches())
+            .count();
+        return compteEntetes >= 2;
+    }
+
+    /**
+     * Charge tous les mondes d'un fichier multi-monde et retourne un {@link Multivers}.
+     * Le premier monde du fichier est le monde racine (plateau de jeu affiché par défaut).
+     */
+    public static Multivers chargerMultivers(Path cheminFichier) throws IOException {
+        java.util.Map<Character, ArrayList<ArrayList<Case>>> grilles =
+            PlateauTexteFichier.chargerTousLesMondes(cheminFichier);
+        return Multivers.depuisGrilles(grilles);
+    }
+
     public static boolean supprimerSauvegarde(Path cheminFichier) throws IOException {
         if (cheminFichier == null) {
             return false;
@@ -167,6 +190,21 @@ public final class ServicePersistance {
         char lettreNiveau
     ) throws IOException {
         PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau, lettreNiveau);
+    }
+
+    /**
+     * Sauvegarde tous les mondes d'un Multivers dans un fichier texte multi-monde.
+     *
+     * @param cheminFichier chemin du fichier cible
+     * @param multivers     le Multivers à sauvegarder
+     * @throws IOException en cas d'erreur d'écriture
+     */
+    public static void sauvegarderMultivers(Path cheminFichier, Multivers multivers) throws IOException {
+        Map<Character, ArrayList<ArrayList<Case>>> grilles = new java.util.LinkedHashMap<>();
+        for (Map.Entry<Character, Plateau> entree : multivers.getTousLesMondes().entrySet()) {
+            grilles.put(entree.getKey(), entree.getValue().getGrille());
+        }
+        PlateauTexteFichier.sauvegarderTousLesMondes(cheminFichier, grilles);
     }
 
     /**

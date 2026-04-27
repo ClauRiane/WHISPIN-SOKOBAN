@@ -57,4 +57,44 @@ public final class GestionEntreeJeu {
             }
         }
     }
+
+    /**
+     * Variante multi-monde : utilise {@link Multivers#deplacer(Direction)} qui gère
+     * l'entrée et la sortie des boîtes-mondes.
+     * Le Ctrl+Z annule sur le plateau courant (monde actif).
+     */
+    public static void gererTouche(KeyEvent evenementTouche, Multivers multivers, ControleurAnimation controleurAnimation, long maintenantNs) {
+        KeyCode touche = evenementTouche.getCode();
+        Direction directionTentative = null;
+
+        if (evenementTouche.isControlDown() && touche == KeyCode.Z) {
+            Plateau courant = multivers.getPlateauCourant();
+            boolean annule = courant.annulerDernierMouvement();
+            if (annule) {
+                controleurAnimation.notifierAnnulation(multivers.estGagne(), maintenantNs);
+            }
+            return;
+        }
+
+        switch (touche) {
+            case UP: case Z: case W: directionTentative = Direction.HAUT;   break;
+            case DOWN: case S:       directionTentative = Direction.BAS;    break;
+            case LEFT: case Q: case A: directionTentative = Direction.GAUCHE; break;
+            case RIGHT: case D:      directionTentative = Direction.DROITE; break;
+            default: break;
+        }
+
+        if (directionTentative == null) return;
+
+        Plateau courant = multivers.getPlateauCourant();
+        boolean vaPousser = courant.vaPousserBoite(directionTentative);
+        Multivers.ResultatDeplacement resultat = multivers.deplacer(directionTentative);
+        Plateau apres = multivers.getPlateauCourant();
+
+        if (resultat != Multivers.ResultatDeplacement.BLOQUE) {
+            controleurAnimation.notifierDeplacementReussi(directionTentative, vaPousser, multivers.estGagne(), maintenantNs);
+        } else {
+            controleurAnimation.notifierDeplacementBloque(directionTentative, maintenantNs);
+        }
+    }
 }

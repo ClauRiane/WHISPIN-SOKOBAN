@@ -141,6 +141,14 @@ public class Plateau {
     public boolean estDansLimites(Position pos) {
         return estDansLimites(pos.getx(), pos.gety());
     }
+
+    /**
+     * Indique si une position est sur la bordure extérieure du plateau (ligne/colonne 0 ou max).
+     */
+    public boolean estSurBordure(Position pos) {
+        return pos.getx() == 0 || pos.getx() == largeur - 1
+            || pos.gety() == 0 || pos.gety() == hauteur - 1;
+    }
     
     /**
      * Retourne la position actuelle du personnage.
@@ -279,9 +287,11 @@ public class Plateau {
             CaseBoite boite = (CaseBoite) prochaineCase;
             boolean boiteEtaitSurCible = boite.estSurCible();
             
-            // Déplacer la boite
+            // Déplacer la boite (en préservant le sous-type CaseBoiteMonde)
             boolean boiteSurNouvelleCible = caseApresBoite.estCible();
-            CaseBoite nouvelleBoite = new CaseBoite(boiteSurNouvelleCible);
+            CaseBoite nouvelleBoite = boite instanceof CaseBoiteMonde bm
+                ? new CaseBoiteMonde(bm.getIdentifiantMonde(), boiteSurNouvelleCible)
+                : new CaseBoite(boiteSurNouvelleCible);
             setCase(posApresBoite, nouvelleBoite);
             
             // Le personnage prend la place de la boite
@@ -296,7 +306,7 @@ public class Plateau {
                 setCase(positionPersonnage, CaseVide.getInstance());
             }
             
-            // Créer le mouvement avec poussée de boite
+            // Créer le mouvement avec poussée de boite (boite originale préservée pour Ctrl+Z)
             mouvement = new Mouvement(
                 direction,
                 positionPersonnage,
@@ -305,7 +315,8 @@ public class Plateau {
                 true,
                 prochainePos,
                 posApresBoite,
-                boiteEtaitSurCible
+                boiteEtaitSurCible,
+                boite
             );
         }
         // Cas 2 : Déplacement simple (case vide ou cible)
@@ -360,8 +371,11 @@ public class Plateau {
             Position posBoiteAvant = dernierMouvement.getPositionBoiteAvant();
             Position posBoiteApres = dernierMouvement.getPositionBoiteApres();
             
-            // Remettre la boite à sa position d'origine
-            CaseBoite boite = new CaseBoite(dernierMouvement.boiteEtaitSurCible());
+            // Remettre la boite à sa position d'origine (sous-type préservé)
+            CaseBoite orig = dernierMouvement.getCaseBoitePoussee();
+            CaseBoite boite = orig instanceof CaseBoiteMonde bm
+                ? new CaseBoiteMonde(bm.getIdentifiantMonde(), dernierMouvement.boiteEtaitSurCible())
+                : new CaseBoite(dernierMouvement.boiteEtaitSurCible());
             setCase(posBoiteAvant, boite);
             
             // Restaurer la case où était la boite après (vide ou cible)
@@ -405,7 +419,7 @@ public class Plateau {
                 Case caseActuelle = grille.get(y).get(x);
                 
                 // Si on trouve une boite qui n'est pas sur une cible, le niveau n'est pas gagné
-                if (caseActuelle instanceof CaseBoite) {
+                if (caseActuelle instanceof CaseBoite && !(caseActuelle instanceof CaseBoiteMonde)) {
                     CaseBoite boite = (CaseBoite) caseActuelle;
                     if (!boite.estSurCible()) {
                         return false;
@@ -426,7 +440,7 @@ public class Plateau {
         for (int y = 0; y < hauteur; y++) {
             for (int x = 0; x < largeur; x++) {
                 Case caseActuelle = grille.get(y).get(x);
-                if (caseActuelle instanceof CaseBoite) {
+                if (caseActuelle instanceof CaseBoite && !(caseActuelle instanceof CaseBoiteMonde)) {
                     CaseBoite boite = (CaseBoite) caseActuelle;
                     if (boite.estSurCible()) {
                         compte++;
@@ -516,6 +530,50 @@ public class Plateau {
         return historique;
     }
     
+    /**
+     * Téléporte le personnage à une nouvelle position (utilisé pour entrer/sortir d'un monde).
+     */
+    public void teleporterPersonnage(Position nouvellePos) {
+        Case actuelle = getCase(positionPersonnage);
+        boolean etaitSurCible = actuelle instanceof Personnage p && p.estSurCible();
+        setCase(positionPersonnage, etaitSurCible ? CaseCible.getInstance() : CaseVide.getInstance());
+        boolean surCible = getCase(nouvellePos).estCible();
+        setCase(nouvellePos, new Personnage(surCible));
+        positionPersonnage = nouvellePos;
+    }
+
+    /**
+     * Retourne la première position d'entrée libre depuis le bord opposé à la direction d'arrivée.
+     * Utilisé quand le personnage entre dans un monde-boîte.
+     *
+     * @param directionArrivee direction dans laquelle le personnage se déplaçait pour entrer
+     * @return position d'entrée dans ce plateau
+     */
+    public Position positionEntreeDepuis(Direction directionArrivee) {
+        return switch (directionArrivee) {
+            case DROITE -> premiereLibreDansColonne(1);          // entre par la gauche
+            case GAUCHE -> premiereLibreDansColonne(largeur - 2); // entre par la droite
+            case BAS    -> premiereLibreDansLigne(1);             // entre par le haut
+            case HAUT   -> premiereLibreDansLigne(hauteur - 2);  // entre par le bas
+        };
+    }
+
+    private Position premiereLibreDansColonne(int x) {
+        for (int y = 1; y < hauteur - 1; y++) {
+            Case c = getCase(new Position(x, y));
+            if (!(c instanceof CaseMur)) return new Position(x, y);
+        }
+        return new Position(largeur / 2, hauteur / 2);
+    }
+
+    private Position premiereLibreDansLigne(int y) {
+        for (int x = 1; x < largeur - 1; x++) {
+            Case c = getCase(new Position(x, y));
+            if (!(c instanceof CaseMur)) return new Position(x, y);
+        }
+        return new Position(largeur / 2, hauteur / 2);
+    }
+
     /**
      * Retourne une représentation textuelle du plateau (debug).
      *

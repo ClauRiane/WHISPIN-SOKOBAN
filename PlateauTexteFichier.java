@@ -190,6 +190,32 @@ public final class PlateauTexteFichier {
     }
 
     /**
+     * Sauvegarde tous les mondes d'un Sokoban récursif dans un seul fichier texte.
+     * Chaque monde est précédé de son en-tête "lettre taille".
+     *
+     * @param cheminFichier chemin du fichier cible
+     * @param mondes map lettre → grille, dans l'ordre d'insertion
+     * @throws IOException en cas d'erreur d'écriture
+     */
+    public static void sauvegarderTousLesMondes(
+        Path cheminFichier,
+        Map<Character, ArrayList<ArrayList<Case>>> mondes
+    ) throws IOException {
+        ArrayList<String> toutesLignes = new ArrayList<>();
+        for (Map.Entry<Character, ArrayList<ArrayList<Case>>> entree : mondes.entrySet()) {
+            char lettre = Character.toUpperCase(entree.getKey());
+            ArrayList<ArrayList<Case>> grille = entree.getValue();
+            validerGrilleCarree(grille);
+            toutesLignes.add(lettre + " " + grille.size());
+            toutesLignes.addAll(convertirGrilleVersLignes(grille));
+        }
+        if (cheminFichier.getParent() != null) {
+            Files.createDirectories(cheminFichier.getParent());
+        }
+        Files.write(cheminFichier, toutesLignes, StandardCharsets.UTF_8);
+    }
+
+    /**
      * Convertit des lignes ASCII Sokoban en grille d'éléments.
      *
      * @param lignes lignes du plateau
@@ -297,13 +323,14 @@ public final class PlateauTexteFichier {
         if (grillePlateau == null || grillePlateau.isEmpty()) {
             throw new IllegalArgumentException("La grille est vide");
         }
-        int taille = grillePlateau.size();
-        for (int i = 0; i < grillePlateau.size(); i++) {
+        int largeur = grillePlateau.get(0).size();
+        for (int i = 1; i < grillePlateau.size(); i++) {
             ArrayList<Case> ligne = grillePlateau.get(i);
-            if (ligne == null || ligne.size() != taille) {
+            if (ligne == null || ligne.size() != largeur) {
                 throw new IllegalArgumentException(
-                    "La grille doit etre carree (" + taille + "x" + taille + "), ligne "
-                        + (i + 1) + " invalide"
+                    "La grille n'est pas rectangulaire, ligne "
+                        + (i + 1) + " a " + (ligne == null ? 0 : ligne.size())
+                        + " colonnes au lieu de " + largeur
                 );
             }
         }

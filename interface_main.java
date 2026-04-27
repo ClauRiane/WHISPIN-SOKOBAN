@@ -7,11 +7,11 @@ public class interface_main extends Application {
 
     @Override
     public void start(Stage stage) {
-        menuPrincipal = new MenuPrincipal((sceneMenu, plateauCharge, niveauSuivant) -> {
+        menuPrincipal = new MenuPrincipal((sceneMenu, plateauCharge, multivers, niveauSuivant) -> {
             if (plateauCharge == null) {
                 return;
             }
-            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, plateauCharge, niveauSuivant);
+            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, plateauCharge, multivers, niveauSuivant);
             stage.setScene(sceneJeu);
         });
 

@@ -20,7 +20,7 @@ import java.util.function.Supplier;
 public class ControleurPartie {
     private static final Color FOND = Color.web("#ece8dc");
 
-    public record NiveauSuivant(Plateau plateau, Supplier<NiveauSuivant> apres) {}
+    public record NiveauSuivant(Plateau plateau, Multivers multivers, Supplier<NiveauSuivant> apres) {}
     private final Stage stage;
     private final Scene sceneMenu;
     private final Plateau plateau;
@@ -33,6 +33,7 @@ public class ControleurPartie {
     private final Supplier<NiveauSuivant> niveauSuivantFournisseur;
     private boolean retourMenuDemande;
     private boolean sauvegardeAutoEffectuee;
+    private Multivers multivers;
 
     public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau, Supplier<NiveauSuivant> niveauSuivant) {
         this.stage = stage;
@@ -59,6 +60,11 @@ public class ControleurPartie {
         configurerScene();
     }
 
+    /** Associe un Multivers à cette partie (pour le rendu des boîtes-mondes). */
+    public void setMultivers(Multivers multivers) {
+        this.multivers = multivers;
+    }
+
     public Scene getScene() {
         return scene;
     }
@@ -72,16 +78,20 @@ public class ControleurPartie {
         return new AnimationTimer() {
             @Override
             public void handle(long maintenantNs) {
-                controleurAnimation.initialiserSiNecessaire(maintenantNs);
-                controleurAnimation.mettreAJour(plateau.estGagne(), maintenantNs);
+                Plateau racine = plateau;
+                Plateau courant = (multivers != null) ? multivers.getPlateauCourant() : racine;
+                boolean gagne = (multivers != null) ? multivers.estGagne() : racine.estGagne();
 
-                if (plateau.estGagne() && !sauvegardeAutoEffectuee) {
+                controleurAnimation.initialiserSiNecessaire(maintenantNs);
+                controleurAnimation.mettreAJour(gagne, maintenantNs);
+
+                if (gagne && !sauvegardeAutoEffectuee) {
                     sauvegarderPartieAutomatique();
                     sauvegardeAutoEffectuee = true;
                 }
 
-                feuArtifice.mettreAJour(plateau.estGagne(), scene.getWidth(), scene.getHeight(), maintenantNs);
-                if (plateau.estGagne() && feuArtifice.doitFermer(maintenantNs) && !retourMenuDemande) {
+                feuArtifice.mettreAJour(gagne, scene.getWidth(), scene.getHeight(), maintenantNs);
+                if (gagne && feuArtifice.doitFermer(maintenantNs) && !retourMenuDemande) {
                     stop();
                     passerAuNiveauSuivantOuMenu();
                     return;
@@ -114,16 +124,22 @@ public class ControleurPartie {
             return;
         }
 
-        if (plateau.estGagne()) {
+        boolean gagne = (multivers != null) ? multivers.estGagne() : plateau.estGagne();
+        if (gagne) {
             return;
         }
 
-        GestionEntreeJeu.gererTouche(evenementTouche, plateau, controleurAnimation, maintenantNs);
+        if (multivers != null) {
+            GestionEntreeJeu.gererTouche(evenementTouche, multivers, controleurAnimation, maintenantNs);
+        } else {
+            GestionEntreeJeu.gererTouche(evenementTouche, plateau, controleurAnimation, maintenantNs);
+        }
         redessiner(maintenantNs);
     }
 
     private void redessiner(long maintenantNs) {
-        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), plateau, controleurAnimation, feuArtifice, imageFond, maintenantNs);
+        Plateau aAfficher = (multivers != null) ? multivers.getPlateauCourant() : plateau;
+        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), aAfficher, multivers, controleurAnimation, feuArtifice, imageFond, maintenantNs);
     }
 
     private void sauvegarderPartieAutomatique() {
@@ -148,7 +164,11 @@ public class ControleurPartie {
 
     private void sauvegarderVersChemin(Path chemin, String libelleSucces, String libelleErreur) {
         try {
-            ServicePersistance.sauvegarderPlateauDansFichierTexte(chemin, plateau.getGrille(), 'A');
+            if (multivers != null) {
+                ServicePersistance.sauvegarderMultivers(chemin, multivers);
+            } else {
+                ServicePersistance.sauvegarderPlateauDansFichierTexte(chemin, plateau.getGrille(), 'A');
+            }
             System.out.println("[Persistance] " + libelleSucces + ": " + chemin);
         } catch (Exception e) {
             System.err.println("[Persistance] Echec " + libelleErreur + ": " + e.getMessage());
@@ -166,7 +186,7 @@ public class ControleurPartie {
         if (niveauSuivantFournisseur != null) {
             NiveauSuivant ns = niveauSuivantFournisseur.get();
             if (ns != null) {
-                stage.setScene(DeuxiemeScene.creerScene(stage, sceneMenu, ns.plateau(), ns.apres()));
+                stage.setScene(DeuxiemeScene.creerScene(stage, sceneMenu, ns.plateau(), ns.multivers(), ns.apres()));
                 return;
             }
         }

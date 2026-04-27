@@ -29,13 +29,16 @@ public class Mouvement {
     /** Indique si la boîte était sur une cible avant le mouvement. */
     private final boolean boiteSurCibleAvant;
 
+    /** Case boîte originale poussée (conservée pour restaurer le sous-type exact lors du Ctrl+Z). */
+    private final CaseBoite caseBoitePoussee;
+
     /**
      * Construit un mouvement simple (sans poussée).
      */
     public Mouvement(Direction direction, Position positionDepart,
                      Position positionArrivee, boolean personnageSurCibleAvant) {
         this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
-             false, null, null, false);
+             false, null, null, false, null);
     }
 
     /**
@@ -45,6 +48,18 @@ public class Mouvement {
                      Position positionArrivee, boolean personnageSurCibleAvant,
                      boolean aPousseeBoite, Position positionBoiteAvant,
                      Position positionBoiteApres, boolean boiteSurCibleAvant) {
+        this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
+             aPousseeBoite, positionBoiteAvant, positionBoiteApres, boiteSurCibleAvant, null);
+    }
+
+    /**
+     * Construit un mouvement complet avec la boîte originale poussée (préserve le sous-type pour l'annulation).
+     */
+    public Mouvement(Direction direction, Position positionDepart,
+                     Position positionArrivee, boolean personnageSurCibleAvant,
+                     boolean aPousseeBoite, Position positionBoiteAvant,
+                     Position positionBoiteApres, boolean boiteSurCibleAvant,
+                     CaseBoite caseBoitePoussee) {
         if (direction == null) {
             throw new IllegalArgumentException("La direction ne peut pas etre nulle");
         }
@@ -56,6 +71,7 @@ public class Mouvement {
         this.positionBoiteAvant = positionBoiteAvant;
         this.positionBoiteApres = positionBoiteApres;
         this.boiteSurCibleAvant = boiteSurCibleAvant;
+        this.caseBoitePoussee = caseBoitePoussee;
     }
 
     /**
@@ -95,6 +111,10 @@ public class Mouvement {
 
     public boolean boiteEtaitSurCible() {
         return boiteSurCibleAvant;
+    }
+
+    public CaseBoite getCaseBoitePoussee() {
+        return caseBoitePoussee;
     }
 
     /**

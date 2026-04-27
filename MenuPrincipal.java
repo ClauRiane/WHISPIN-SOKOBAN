@@ -44,7 +44,7 @@ public class MenuPrincipal {
 
     @FunctionalInterface
     public interface ActionJeu {
-        void lancer(Scene scene, Plateau plateau, Supplier<ControleurPartie.NiveauSuivant> niveauSuivant);
+        void lancer(Scene scene, Plateau plateau, Multivers multivers, Supplier<ControleurPartie.NiveauSuivant> niveauSuivant);
     }
 
     private final ActionJeu actionJouer;
@@ -411,7 +411,7 @@ public class MenuPrincipal {
                 }
                 redessiner();
             }
-            case JOUER -> actionJouer.lancer(scene, null, null);
+            case JOUER -> actionJouer.lancer(scene, null, null, null);
             case QUITTER -> Platform.exit();
         }
     }
@@ -434,8 +434,15 @@ public class MenuPrincipal {
         try {
             int index = controleurMenu.getIndexSelectionNiveau();
             Path chemin = niveauxDisponibles.get(index);
-            Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-            actionJouer.lancer(scene, plateauCharge, creerChaineFournisseur(index + 1));
+            Multivers multivers = null;
+            Plateau plateauCharge;
+            if (ServicePersistance.estFichierMultiMonde(chemin)) {
+                multivers = ServicePersistance.chargerMultivers(chemin);
+                plateauCharge = multivers.getPlateauCourant();
+            } else {
+                plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
+            }
+            actionJouer.lancer(scene, plateauCharge, multivers, creerChaineFournisseur(index + 1));
         } catch (Exception e) {
             System.err.println("[Niveaux] Impossible de charger le niveau: " + e.getMessage());
         }
@@ -449,8 +456,15 @@ public class MenuPrincipal {
         Supplier<ControleurPartie.NiveauSuivant> apres = creerChaineFournisseur(index + 1);
         return () -> {
             try {
-                Plateau p = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-                return new ControleurPartie.NiveauSuivant(p, apres);
+                Multivers mv = null;
+                Plateau p;
+                if (ServicePersistance.estFichierMultiMonde(chemin)) {
+                    mv = ServicePersistance.chargerMultivers(chemin);
+                    p = mv.getPlateauCourant();
+                } else {
+                    p = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
+                }
+                return new ControleurPartie.NiveauSuivant(p, mv, apres);
             } catch (Exception e) {
                 System.err.println("[Niveaux] Impossible de charger le niveau " + chemin.getFileName() + ": " + e.getMessage());
                 return null;
@@ -477,7 +491,7 @@ public class MenuPrincipal {
             int index = controleurMenu.getIndexSelectionSauvegarde();
             Path chemin = sauvegardesDisponibles.get(index).getChemin();
             Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-            actionJouer.lancer(scene, plateauCharge, null);
+            actionJouer.lancer(scene, plateauCharge, null, null);
         } catch (Exception e) {
             System.err.println("[Persistance] Impossible de charger la sauvegarde: " + e.getMessage());
         }
