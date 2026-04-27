@@ -1,10 +1,16 @@
 import javafx.animation.AnimationTimer;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.image.Image;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Optional;
 
 /**
  * Contrôleur principal d'une partie en cours.
@@ -23,6 +29,7 @@ public class ControleurPartie {
     private final AnimationTimer timer;
     private final Image imageFond;
     private boolean retourMenuDemande;
+    private boolean sauvegardeAutoEffectuee;
 
     public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau) {
         this.stage = stage;
@@ -64,12 +71,15 @@ public class ControleurPartie {
                 controleurAnimation.initialiserSiNecessaire(maintenantNs);
                 controleurAnimation.mettreAJour(plateau.estGagne(), maintenantNs);
 
+                if (plateau.estGagne() && !sauvegardeAutoEffectuee) {
+                    sauvegarderPartieAutomatique();
+                    sauvegardeAutoEffectuee = true;
+                }
+
                 feuArtifice.mettreAJour(plateau.estGagne(), scene.getWidth(), scene.getHeight(), maintenantNs);
                 if (plateau.estGagne() && feuArtifice.doitFermer(maintenantNs) && !retourMenuDemande) {
-                    retourMenuDemande = true;
                     stop();
-                    stage.setScene(sceneMenu);
-                    sceneMenu.getRoot().requestFocus();
+                    retournerAuMenu();
                     return;
                 }
 
@@ -88,6 +98,18 @@ public class ControleurPartie {
     }
 
     private void gererTouche(javafx.scene.input.KeyEvent evenementTouche, long maintenantNs) {
+        if (evenementTouche.isControlDown() && evenementTouche.getCode() == KeyCode.S) {
+            sauvegarderPartieNommee();
+            redessiner(maintenantNs);
+            return;
+        }
+
+        if (evenementTouche.getCode() == KeyCode.ESCAPE) {
+            sauvegarderAvantRetour();
+            retournerAuMenu();
+            return;
+        }
+
         if (plateau.estGagne()) {
             return;
         }
@@ -98,5 +120,49 @@ public class ControleurPartie {
 
     private void redessiner(long maintenantNs) {
         RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), plateau, controleurAnimation, feuArtifice, imageFond, maintenantNs);
+    }
+
+    private void sauvegarderPartieAutomatique() {
+        Path cheminAuto = ServicePersistance.creerCheminSauvegardeAuto();
+        sauvegarderVersChemin(cheminAuto, "Auto-sauvegarde de fin de partie", "auto-sauvegarde");
+    }
+
+    private void sauvegarderPartieNommee() {
+        TextInputDialog dialogue = new TextInputDialog("partie_1");
+        dialogue.setTitle("Sauvegarde");
+        dialogue.setHeaderText("Nommer la sauvegarde");
+        dialogue.setContentText("Nom:");
+
+        Optional<String> resultat = dialogue.showAndWait();
+        if (resultat.isEmpty()) {
+            return;
+        }
+
+        Path cheminNomme = ServicePersistance.creerCheminSauvegardeNommee(resultat.get());
+        sauvegarderVersChemin(cheminNomme, "Sauvegarde nommee", "sauvegarde nommee");
+    }
+
+    private void sauvegarderVersChemin(Path chemin, String libelleSucces, String libelleErreur) {
+        try {
+            ServicePersistance.sauvegarderPlateauDansFichierTexte(chemin, plateau.getGrille(), 'A');
+            System.out.println("[Persistance] " + libelleSucces + ": " + chemin);
+        } catch (Exception e) {
+            System.err.println("[Persistance] Echec " + libelleErreur + ": " + e.getMessage());
+        }
+    }
+
+    private void sauvegarderAvantRetour() {
+        Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
+        sauvegarderVersChemin(chemin, "Sauvegarde avant retour menu", "sauvegarde avant retour");
+    }
+
+    private void retournerAuMenu() {
+        if (retourMenuDemande) {
+            return;
+        }
+        retourMenuDemande = true;
+        timer.stop();
+        stage.setScene(sceneMenu);
+        sceneMenu.getRoot().requestFocus();
     }
 }

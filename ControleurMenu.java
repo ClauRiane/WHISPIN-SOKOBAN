@@ -7,6 +7,7 @@ import javafx.scene.input.KeyCode;
 public class ControleurMenu {
     public enum Ecran {
         MENU,
+        NIVEAUX,
         REGLES,
         PARAMETRES,
         SAUVEGARDE
@@ -17,6 +18,23 @@ public class ControleurMenu {
         REDESSINER,
         JOUER,
         QUITTER
+    }
+
+    public enum ActionSauvegarde {
+        AUCUNE,
+        REDESSINER,
+        RETOUR,
+        LANCER_SELECTION,
+        SUPPRIMER_SELECTION,
+        RAFRAICHIR
+    }
+
+    public enum ActionNiveau {
+        AUCUNE,
+        REDESSINER,
+        RETOUR,
+        LANCER_SELECTION,
+        RAFRAICHIR
     }
 
     private static final class OptionMenu {
@@ -32,7 +50,7 @@ public class ControleurMenu {
     }
 
     private final OptionMenu[] optionsMenu = new OptionMenu[] {
-        new OptionMenu("Jouer", null, Action.JOUER),
+        new OptionMenu("Jouer", Ecran.NIVEAUX, Action.REDESSINER),
         new OptionMenu("Regles du jeu", Ecran.REGLES, Action.REDESSINER),
         new OptionMenu("Parametre", Ecran.PARAMETRES, Action.REDESSINER),
         new OptionMenu("Sauvegarde", Ecran.SAUVEGARDE, Action.REDESSINER),
@@ -41,6 +59,8 @@ public class ControleurMenu {
 
     private Ecran ecranActuel = Ecran.MENU;
     private int indexSelectionne = 0;
+    private int indexSelectionNiveau = 0;
+    private int indexSelectionSauvegarde = 0;
 
     public Ecran getEcranActuel() {
         return ecranActuel;
@@ -58,12 +78,43 @@ public class ControleurMenu {
         return optionsMenu.length;
     }
 
+    public int getIndexSelectionSauvegarde() {
+        return indexSelectionSauvegarde;
+    }
+
+    public int getIndexSelectionNiveau() {
+        return indexSelectionNiveau;
+    }
+
+    public void definirIndexSelectionNiveau(int index) {
+        this.indexSelectionNiveau = Math.max(0, index);
+    }
+
+    public void normaliserIndexSelectionNiveau(int nombreNiveauxAffiches) {
+        int total = Math.max(1, nombreNiveauxAffiches + 1);
+        if (indexSelectionNiveau >= total) {
+            indexSelectionNiveau = total - 1;
+        }
+    }
+
+    public void definirIndexSelectionSauvegarde(int index) {
+        this.indexSelectionSauvegarde = Math.max(0, index);
+    }
+
+    public void normaliserIndexSelectionSauvegarde(int nombreSauvegardesAffichees) {
+        int total = Math.max(1, nombreSauvegardesAffichees + 1);
+        if (indexSelectionSauvegarde >= total) {
+            indexSelectionSauvegarde = total - 1;
+        }
+    }
+
     public String getTexteOption(int index) {
         return optionsMenu[index].texte;
     }
 
     public String getTitreEcranSecondaire() {
         return switch (ecranActuel) {
+            case NIVEAUX -> "Selection du niveau";
             case REGLES -> "Regles du jeu";
             case PARAMETRES -> "Parametre";
             case SAUVEGARDE -> "Sauvegarde";
@@ -73,6 +124,10 @@ public class ControleurMenu {
 
     public String[] getLignesEcranSecondaire() {
         return switch (ecranActuel) {
+            case NIVEAUX -> new String[] {
+                "Choisis un niveau dans le dossier niveau/.",
+                "Entree lance le niveau selectionne."
+            };
             case REGLES -> new String[] {
                 "- Deplace le cube joueur avec ZQSD.",
                 "- Pousse les cubes vers les portails.",
@@ -88,11 +143,11 @@ public class ControleurMenu {
                 "pour tester le rendu Parabox."
             };
             case SAUVEGARDE -> new String[] {
-                "Les sauvegardes du projet sont stockees dans:",
-                "PERSISTANCE/solution/",
+                "Sauvegardes disponibles dans le dossier:",
+                "sauvegardes/",
                 "",
-                "Cet ecran pourra accueillir plus tard",
-                "charger/sauvegarder une partie depuis le menu."
+                "Selectionne une sauvegarde et appuie sur Entree",
+                "pour lancer la partie correspondante."
             };
             default -> new String[0];
         };
@@ -117,7 +172,8 @@ public class ControleurMenu {
             return Action.AUCUNE;
         }
 
-        if (code == KeyCode.ENTER || code == KeyCode.SPACE || code == KeyCode.ESCAPE || code == KeyCode.Q || code == KeyCode.LEFT) {
+        if (code == KeyCode.ENTER || code == KeyCode.SPACE || code == KeyCode.ESCAPE
+                || code == KeyCode.BACK_SPACE || code == KeyCode.Q || code == KeyCode.LEFT) {
             ecranActuel = Ecran.MENU;
             return Action.REDESSINER;
         }
@@ -135,10 +191,96 @@ public class ControleurMenu {
         return Action.REDESSINER;
     }
 
+    public ActionSauvegarde gererToucheSauvegarde(KeyCode code, int nombreSauvegardesAffichees) {
+        int total = Math.max(1, nombreSauvegardesAffichees + 1);
+
+        if (code == KeyCode.ESCAPE || code == KeyCode.BACK_SPACE || code == KeyCode.Q || code == KeyCode.LEFT) {
+            return ActionSauvegarde.RETOUR;
+        }
+        if (code == KeyCode.R) {
+            return ActionSauvegarde.RAFRAICHIR;
+        }
+        if (code == KeyCode.TAB || code == KeyCode.S || code == KeyCode.DOWN) {
+            deplacerSelectionSauvegarde(1, total);
+            return ActionSauvegarde.REDESSINER;
+        }
+        if (code == KeyCode.Z || code == KeyCode.UP) {
+            deplacerSelectionSauvegarde(-1, total);
+            return ActionSauvegarde.REDESSINER;
+        }
+        if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+            return estRetourSauvegardeSelectionne(nombreSauvegardesAffichees)
+                ? ActionSauvegarde.RETOUR
+                : ActionSauvegarde.LANCER_SELECTION;
+        }
+        if (code == KeyCode.DELETE) {
+            if (estRetourSauvegardeSelectionne(nombreSauvegardesAffichees)) {
+                return ActionSauvegarde.AUCUNE;
+            }
+            return ActionSauvegarde.SUPPRIMER_SELECTION;
+        }
+
+        return ActionSauvegarde.AUCUNE;
+    }
+
+    public ActionNiveau gererToucheNiveau(KeyCode code, int nombreNiveauxAffiches) {
+        int total = Math.max(1, nombreNiveauxAffiches + 1);
+
+        if (code == KeyCode.ESCAPE || code == KeyCode.BACK_SPACE || code == KeyCode.Q || code == KeyCode.LEFT) {
+            return ActionNiveau.RETOUR;
+        }
+        if (code == KeyCode.R) {
+            return ActionNiveau.RAFRAICHIR;
+        }
+        if (code == KeyCode.TAB || code == KeyCode.S || code == KeyCode.DOWN) {
+            deplacerSelectionNiveau(1, total);
+            return ActionNiveau.REDESSINER;
+        }
+        if (code == KeyCode.Z || code == KeyCode.UP) {
+            deplacerSelectionNiveau(-1, total);
+            return ActionNiveau.REDESSINER;
+        }
+        if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+            return estRetourNiveauSelectionne(nombreNiveauxAffiches)
+                ? ActionNiveau.RETOUR
+                : ActionNiveau.LANCER_SELECTION;
+        }
+
+        return ActionNiveau.AUCUNE;
+    }
+
+    public boolean estRetourNiveauSelectionne(int nombreNiveauxAffiches) {
+        return indexSelectionNiveau >= Math.max(0, nombreNiveauxAffiches);
+    }
+
+    private void deplacerSelectionNiveau(int delta, int total) {
+        indexSelectionNiveau = (indexSelectionNiveau + delta) % total;
+        if (indexSelectionNiveau < 0) {
+            indexSelectionNiveau += total;
+        }
+    }
+
+    public boolean estRetourSauvegardeSelectionne(int nombreSauvegardesAffichees) {
+        return indexSelectionSauvegarde >= Math.max(0, nombreSauvegardesAffichees);
+    }
+
+    private void deplacerSelectionSauvegarde(int delta, int total) {
+        indexSelectionSauvegarde = (indexSelectionSauvegarde + delta) % total;
+        if (indexSelectionSauvegarde < 0) {
+            indexSelectionSauvegarde += total;
+        }
+    }
+
     private Action validerSelectionCourante() {
         OptionMenu option = optionsMenu[indexSelectionne];
         if (option.action == Action.REDESSINER && option.destination != null) {
             ecranActuel = option.destination;
+            if (option.destination == Ecran.NIVEAUX) {
+                indexSelectionNiveau = 0;
+            }
+            if (option.destination == Ecran.SAUVEGARDE) {
+                indexSelectionSauvegarde = 0;
+            }
         }
         return option.action;
     }

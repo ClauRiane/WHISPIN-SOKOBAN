@@ -106,45 +106,39 @@ public class Mouvement {
     }
 
     /**
-     * Retourne le code legacy de persistance (H/B/G/D).
+     * Retourne le code de persistance en français :
+     * minuscule = déplacement seul, majuscule = poussée de boîte.
+     * h/b/g/d et H/B/G/D.
      */
     public char obtenirCode() {
-        switch (direction) {
-            case HAUT:
-                return 'H';
-            case BAS:
-                return 'B';
-            case GAUCHE:
-                return 'G';
-            case DROITE:
-                return 'D';
-            default:
-                throw new IllegalStateException("Direction inconnue");
-        }
+        char base = switch (direction) {
+            case HAUT    -> 'h';
+            case BAS     -> 'b';
+            case GAUCHE  -> 'g';
+            case DROITE  -> 'd';
+        };
+        return aPousseeBoite ? Character.toUpperCase(base) : base;
     }
 
     /**
-     * Construit un mouvement depuis un code legacy ou moderne.
+     * Construit un mouvement depuis un code français (h/b/g/d, majuscule = poussée).
      */
     public static Mouvement depuisCode(char code) {
-        boolean poussee = Character.isUpperCase(code) && "UDLR".indexOf(code) >= 0;
+        boolean poussee = Character.isUpperCase(code);
         char normalise = Character.toLowerCase(code);
         Direction direction;
 
         switch (normalise) {
             case 'h':
-            case 'u':
                 direction = Direction.HAUT;
                 break;
             case 'b':
-            case 'd':
                 direction = Direction.BAS;
                 break;
             case 'g':
-            case 'l':
                 direction = Direction.GAUCHE;
                 break;
-            case 'r':
+            case 'd':
                 direction = Direction.DROITE;
                 break;
             default:

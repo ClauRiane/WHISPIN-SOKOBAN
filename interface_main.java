@@ -10,9 +10,15 @@ public class interface_main extends Application {
     public void start(Stage stage) {
         jeu = new Jeu();
 
-        menuPrincipal = new MenuPrincipal(sceneMenu -> {
-            jeu = new Jeu();
-            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, jeu.getPlateau());
+        menuPrincipal = new MenuPrincipal((sceneMenu, plateauCharge) -> {
+            Plateau plateauPourJouer;
+            if (plateauCharge != null) {
+                plateauPourJouer = plateauCharge;
+            } else {
+                jeu = new Jeu();
+                plateauPourJouer = jeu.getPlateau();
+            }
+            Scene sceneJeu = DeuxiemeScene.creerScene(stage, sceneMenu, plateauPourJouer);
             stage.setScene(sceneJeu);
         });
 

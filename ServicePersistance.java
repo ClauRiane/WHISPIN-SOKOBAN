@@ -4,13 +4,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public final class ServicePersistance {
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Path DOSSIER_NIVEAUX = Path.of("niveau");
+    private static final Path DOSSIER_SAUVEGARDES = Path.of("sauvegardes");
+    private static final DateTimeFormatter FORMAT_HORODATE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final DateTimeFormatter FORMAT_AFFICHAGE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final String CLE_NIVEAU = "niveau";
     private static final String CLE_COUPS = "coups";
     private static final String CLE_HORODATAGE = "horodatage";
@@ -19,6 +28,118 @@ public final class ServicePersistance {
     private static final String CLE_MOUVEMENTS = "mouvements";
 
     private ServicePersistance() {
+    }
+
+    public static final class SauvegardeInfo {
+        private final Path chemin;
+        private final long tailleOctets;
+        private final LocalDateTime dateModification;
+
+        public SauvegardeInfo(Path chemin, long tailleOctets, LocalDateTime dateModification) {
+            this.chemin = chemin;
+            this.tailleOctets = tailleOctets;
+            this.dateModification = dateModification;
+        }
+
+        public Path getChemin() {
+            return chemin;
+        }
+
+        public String getNomFichier() {
+            return chemin.getFileName().toString();
+        }
+
+        public long getTailleOctets() {
+            return tailleOctets;
+        }
+
+        public LocalDateTime getDateModification() {
+            return dateModification;
+        }
+
+        public String getDateModificationFormatee() {
+            return dateModification.format(FORMAT_AFFICHAGE);
+        }
+    }
+
+    public static Path getDossierSauvegardes() {
+        return DOSSIER_SAUVEGARDES;
+    }
+
+    public static Path getDossierNiveaux() {
+        return DOSSIER_NIVEAUX;
+    }
+
+    public static Path creerCheminSauvegardeAuto() {
+        String nom = "auto_" + LocalDateTime.now().format(FORMAT_HORODATE) + ".txt";
+        return DOSSIER_SAUVEGARDES.resolve(nom);
+    }
+
+    public static Path creerCheminSauvegardeNommee(String nomUtilisateur) {
+        if (nomUtilisateur == null || nomUtilisateur.isBlank()) {
+            throw new IllegalArgumentException("Le nom de sauvegarde est vide");
+        }
+        String nomNettoye = nomUtilisateur.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
+        if (nomNettoye.isBlank()) {
+            throw new IllegalArgumentException("Le nom de sauvegarde est invalide");
+        }
+        return DOSSIER_SAUVEGARDES.resolve(nomNettoye + ".txt");
+    }
+
+    public static ArrayList<SauvegardeInfo> listerSauvegardesInfos() throws IOException {
+        if (!Files.exists(DOSSIER_SAUVEGARDES)) {
+            return new ArrayList<>();
+        }
+        ArrayList<SauvegardeInfo> sauvegardes = new ArrayList<>();
+        try (Stream<Path> flux = Files.list(DOSSIER_SAUVEGARDES)) {
+            flux
+                .filter(Files::isRegularFile)
+                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".txt"))
+                .sorted(Comparator.comparing((Path p) -> {
+                    try {
+                        return Files.getLastModifiedTime(p);
+                    } catch (IOException e) {
+                        return FileTime.fromMillis(0L);
+                    }
+                }).reversed())
+                .forEach(p -> {
+                    try {
+                        long taille = Files.size(p);
+                        FileTime derniereModif = Files.getLastModifiedTime(p);
+                        LocalDateTime date = LocalDateTime.ofInstant(derniereModif.toInstant(), java.time.ZoneId.systemDefault());
+                        sauvegardes.add(new SauvegardeInfo(p, taille, date));
+                    } catch (IOException e) {
+                        // Ignore un fichier illisible pour ne pas bloquer toute la liste.
+                    }
+                });
+        }
+        return sauvegardes;
+    }
+
+    public static ArrayList<Path> listerNiveauxTexte() throws IOException {
+        if (!Files.exists(DOSSIER_NIVEAUX)) {
+            return new ArrayList<>();
+        }
+
+        ArrayList<Path> niveaux = new ArrayList<>();
+        try (Stream<Path> flux = Files.list(DOSSIER_NIVEAUX)) {
+            flux
+                .filter(Files::isRegularFile)
+                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".txt"))
+                .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()))
+                .forEach(niveaux::add);
+        }
+        return niveaux;
+    }
+
+    public static boolean supprimerSauvegarde(Path cheminFichier) throws IOException {
+        if (cheminFichier == null) {
+            return false;
+        }
+        if (!cheminFichier.normalize().startsWith(DOSSIER_SAUVEGARDES.normalize())) {
+            throw new IllegalArgumentException("Suppression interdite hors dossier sauvegardes");
+        }
+        return Files.deleteIfExists(cheminFichier);
     }
 
     /**
@@ -33,6 +154,22 @@ public final class ServicePersistance {
     }
 
     /**
+     * Sauvegarde une grille Sokoban dans un fichier texte avec en-tete "lettre taille".
+     *
+     * @param cheminFichier chemin du fichier cible
+     * @param grillePlateau grille a sauvegarder
+     * @param lettreNiveau identifiant de niveau (ex: A, B, C)
+     * @throws IOException en cas d'erreur d'ecriture
+     */
+    public static void sauvegarderPlateauDansFichierTexte(
+        Path cheminFichier,
+        ArrayList<ArrayList<Case>> grillePlateau,
+        char lettreNiveau
+    ) throws IOException {
+        PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau, lettreNiveau);
+    }
+
+    /**
      * Charge une grille Sokoban depuis un fichier texte.
      *
      * @param chemin chemin du fichier source
@@ -40,7 +177,7 @@ public final class ServicePersistance {
      * @throws IOException en cas d'erreur de lecture
      */
     public static ArrayList<ArrayList<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
-        return (ArrayList<ArrayList<Case>>) (ArrayList<?>) PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
+        return PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
     }
 
     /**

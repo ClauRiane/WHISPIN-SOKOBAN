@@ -463,6 +463,49 @@ public class Plateau {
     public void reinitialiserHistorique() {
         historique.clear();
     }
+
+    /**
+     * Remplace l'etat actuel du plateau par une nouvelle grille chargee.
+     * L'historique est reinitialise.
+     *
+     * @param nouvelleGrille nouvelle grille a appliquer
+     */
+    public void chargerDepuisGrille(ArrayList<ArrayList<Case>> nouvelleGrille) {
+        if (nouvelleGrille == null || nouvelleGrille.isEmpty()) {
+            throw new IllegalArgumentException("La grille chargee ne peut pas etre vide");
+        }
+
+        int largeurReference = nouvelleGrille.get(0).size();
+        if (largeurReference == 0) {
+            throw new IllegalArgumentException("La grille chargee est invalide (ligne vide)");
+        }
+
+        ArrayList<ArrayList<Case>> copie = new ArrayList<>();
+        int nombrePersonnages = 0;
+
+        for (ArrayList<Case> ligne : nouvelleGrille) {
+            if (ligne == null || ligne.size() != largeurReference) {
+                throw new IllegalArgumentException("La grille chargee doit etre rectangulaire");
+            }
+            ArrayList<Case> copieLigne = new ArrayList<>(ligne);
+            for (Case element : copieLigne) {
+                if (element != null && element.estPersonnageCible()) {
+                    nombrePersonnages++;
+                }
+            }
+            copie.add(copieLigne);
+        }
+
+        if (nombrePersonnages != 1) {
+            throw new IllegalArgumentException("La grille chargee doit contenir exactement un personnage");
+        }
+
+        this.grille = copie;
+        this.hauteur = copie.size();
+        this.largeur = largeurReference;
+        this.positionPersonnage = trouverPositionPersonnage();
+        this.historique.clear();
+    }
     
     /**
      * Retourne l'historique des mouvements.

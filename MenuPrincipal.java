@@ -1,9 +1,14 @@
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Optional;
 
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
@@ -20,6 +25,7 @@ public class MenuPrincipal {
     private static final double LARGEUR = 1000;
     private static final double HAUTEUR = 700;
     private static final Color FOND = Color.web("#17352d");
+    private static final int ITEMS_VISIBLES = 3;
 
     /**
      * Représente la zone cliquable d'un bouton affiché sur le canvas.
@@ -35,12 +41,16 @@ public class MenuPrincipal {
         }
     }
 
-    private final Consumer<Scene> actionJouer;
+    private final BiConsumer<Scene, Plateau> actionJouer;
     private final ControleurMenu controleurMenu;
     private final Canvas canvas;
     private final Scene scene;
     private final Bouton[] boutonsMenu;
+    private final Bouton[] boutonsNiveaux;
+    private final Bouton[] boutonsSauvegardes;
     private final Bouton boutonRetourSecondaire = new Bouton();
+    private final ArrayList<Path> niveauxDisponibles = new ArrayList<>();
+    private final ArrayList<ServicePersistance.SauvegardeInfo> sauvegardesDisponibles = new ArrayList<>();
     private final Image imageFond;
 
     /**
@@ -48,10 +58,12 @@ public class MenuPrincipal {
      *
      * @param actionJouer action appelée quand l'utilisateur choisit "Jouer"
      */
-    public MenuPrincipal(Consumer<Scene> actionJouer) {
+    public MenuPrincipal(BiConsumer<Scene, Plateau> actionJouer) {
         this.actionJouer = actionJouer;
         this.controleurMenu = new ControleurMenu();
         this.boutonsMenu = new Bouton[controleurMenu.getNombreOptions()];
+        this.boutonsNiveaux = new Bouton[ITEMS_VISIBLES];
+        this.boutonsSauvegardes = new Bouton[ITEMS_VISIBLES];
 
         Image img = null;
         try {
@@ -63,6 +75,12 @@ public class MenuPrincipal {
         this.imageFond = img;
         for (int i = 0; i < boutonsMenu.length; i++) {
             boutonsMenu[i] = new Bouton();
+        }
+        for (int i = 0; i < boutonsNiveaux.length; i++) {
+            boutonsNiveaux[i] = new Bouton();
+        }
+        for (int i = 0; i < boutonsSauvegardes.length; i++) {
+            boutonsSauvegardes[i] = new Bouton();
         }
 
         this.canvas = new Canvas(LARGEUR, HAUTEUR);
@@ -77,6 +95,8 @@ public class MenuPrincipal {
         this.canvas.setOnMouseClicked(e -> gererClic(e.getX(), e.getY()));
         this.canvas.setFocusTraversable(true);
 
+        rafraichirNiveaux();
+        rafraichirSauvegardes();
         redessiner();
     }
 
@@ -235,31 +255,48 @@ public class MenuPrincipal {
 
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(Font.font("SansSerif", Math.max(14, panneauLargeur * 0.022)));
-        double texteY = carteY + carteHauteur * 0.22;
-        double lineHeight = Math.max(24, panneauHauteur * 0.070);
-        double limiteTexteY = carteY + carteHauteur * 0.88;
-        for (int i = 0; i < lignes.length; i++) {
-            double y = texteY + i * lineHeight;
-            if (y > limiteTexteY) {
-                break;
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX) {
+            dessinerListeNiveaux(gc, carteX, carteY, carteLargeur, carteHauteur, panneauHauteur);
+        } else if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE) {
+            dessinerListeSauvegardes(gc, carteX, carteY, carteLargeur, carteHauteur, panneauHauteur);
+        } else {
+            double texteY = carteY + carteHauteur * 0.22;
+            double lineHeight = Math.max(24, panneauHauteur * 0.070);
+            double limiteTexteY = carteY + carteHauteur * 0.88;
+            for (int i = 0; i < lignes.length; i++) {
+                double y = texteY + i * lineHeight;
+                if (y > limiteTexteY) {
+                    break;
+                }
+                gc.fillText(lignes[i], carteX + margeX * 0.55, y);
             }
-            gc.fillText(lignes[i], carteX + margeX * 0.55, y);
         }
 
         gc.setFill(Color.web("#102820", 0.35));
         gc.fillRoundRect(boutonRetourSecondaire.x + 6, boutonRetourSecondaire.y + 6, boutonRetourSecondaire.largeur, boutonRetourSecondaire.hauteur, 16, 16);
-        gc.setFill(Color.web("#2e5b4e"));
+        boolean retourSelectionne = (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX
+            && controleurMenu.estRetourNiveauSelectionne(getNombreNiveauxAffiches()))
+            || (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE
+            && controleurMenu.estRetourSauvegardeSelectionne(getNombreSauvegardesAffichees()));
+
+        gc.setFill(retourSelectionne ? Color.web("#f2d974") : Color.web("#2e5b4e"));
         gc.fillRoundRect(boutonRetourSecondaire.x, boutonRetourSecondaire.y, boutonRetourSecondaire.largeur, boutonRetourSecondaire.hauteur, 16, 16);
-        gc.setStroke(Color.web("#d7ece4"));
-        gc.setLineWidth(2);
+        gc.setStroke(retourSelectionne ? Color.web("#fff6c7") : Color.web("#d7ece4"));
+        gc.setLineWidth(retourSelectionne ? 2.5 : 2);
         gc.strokeRoundRect(boutonRetourSecondaire.x, boutonRetourSecondaire.y, boutonRetourSecondaire.largeur, boutonRetourSecondaire.hauteur, 16, 16);
 
         gc.setFill(Color.web("#6f9f91"));
         gc.setFont(Font.font("SansSerif", Math.max(12, panneauLargeur * 0.016)));
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.fillText("Entree, Espace, Q ou Fleche gauche pour revenir", centreX, panneauY + panneauHauteur * 0.74);
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX) {
+            gc.fillText("Z/S ou fleches pour choisir, Entree pour lancer, R pour rafraichir", centreX, panneauY + panneauHauteur * 0.74);
+        } else if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE) {
+            gc.fillText("Z/S ou fleches pour choisir, Entree pour valider, R pour rafraichir", centreX, panneauY + panneauHauteur * 0.74);
+        } else {
+            gc.fillText("Entree, Espace, Q ou Fleche gauche pour revenir", centreX, panneauY + panneauHauteur * 0.74);
+        }
 
-        gc.setFill(Color.web("#e8f3ee"));
+        gc.setFill(retourSelectionne ? Color.web("#2d241c") : Color.web("#e8f3ee"));
         gc.setFont(Font.font("SansSerif", FontWeight.SEMI_BOLD, Math.max(15, panneauLargeur * 0.03)));
         gc.fillText("Retour", boutonRetourSecondaire.x + boutonRetourSecondaire.largeur / 2.0, boutonRetourSecondaire.y + boutonRetourSecondaire.hauteur * 0.62);
         gc.setTextAlign(TextAlignment.LEFT);
@@ -279,12 +316,79 @@ public class MenuPrincipal {
             return;
         }
 
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX) {
+            int total = getNombreNiveauxAffiches();
+            int visibles = Math.min(total, ITEMS_VISIBLES);
+            int scrollOffset = calculerScrollNiveaux();
+            for (int i = 0; i < visibles; i++) {
+                if (!boutonsNiveaux[i].contient(x, y)) {
+                    continue;
+                }
+                controleurMenu.definirIndexSelectionNiveau(scrollOffset + i);
+                lancerNiveauSelectionne();
+                return;
+            }
+        }
+
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE) {
+            int total = getNombreSauvegardesAffichees();
+            int visibles = Math.min(total, ITEMS_VISIBLES);
+            int scrollOffset = calculerScrollSauvegardes();
+            for (int i = 0; i < visibles; i++) {
+                if (!boutonsSauvegardes[i].contient(x, y)) {
+                    continue;
+                }
+                controleurMenu.definirIndexSelectionSauvegarde(scrollOffset + i);
+                lancerSauvegardeSelectionnee();
+                return;
+            }
+        }
+
         if (boutonRetourSecondaire.contient(x, y)) {
             appliquerAction(controleurMenu.gererRetourSecondaire());
         }
     }
 
     private void gererClavier(KeyCode code) {
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX) {
+            switch (controleurMenu.gererToucheNiveau(code, getNombreNiveauxAffiches())) {
+                case RETOUR -> {
+                    appliquerAction(controleurMenu.gererRetourSecondaire());
+                }
+                case LANCER_SELECTION -> {
+                    lancerNiveauSelectionne();
+                }
+                case RAFRAICHIR -> {
+                    rafraichirNiveaux();
+                    redessiner();
+                }
+                case REDESSINER -> redessiner();
+                case AUCUNE -> { }
+            }
+            return;
+        }
+
+        if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE) {
+            switch (controleurMenu.gererToucheSauvegarde(code, getNombreSauvegardesAffichees())) {
+                case RETOUR -> {
+                    appliquerAction(controleurMenu.gererRetourSecondaire());
+                }
+                case LANCER_SELECTION -> {
+                    lancerSauvegardeSelectionnee();
+                }
+                case SUPPRIMER_SELECTION -> {
+                    supprimerSauvegardeSelectionnee();
+                    redessiner();
+                }
+                case RAFRAICHIR -> {
+                    rafraichirSauvegardes();
+                    redessiner();
+                }
+                case REDESSINER -> redessiner();
+                case AUCUNE -> { }
+            }
+            return;
+        }
         appliquerAction(controleurMenu.gererTouche(code));
     }
 
@@ -292,9 +396,256 @@ public class MenuPrincipal {
         switch (action) {
             case AUCUNE -> {
             }
-            case REDESSINER -> redessiner();
-            case JOUER -> actionJouer.accept(scene);
+            case REDESSINER -> {
+                if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.NIVEAUX) {
+                    rafraichirNiveaux();
+                }
+                if (controleurMenu.getEcranActuel() == ControleurMenu.Ecran.SAUVEGARDE) {
+                    rafraichirSauvegardes();
+                }
+                redessiner();
+            }
+            case JOUER -> actionJouer.accept(scene, null);
             case QUITTER -> Platform.exit();
         }
+    }
+
+    private void rafraichirNiveaux() {
+        niveauxDisponibles.clear();
+        try {
+            niveauxDisponibles.addAll(ServicePersistance.listerNiveauxTexte());
+            controleurMenu.normaliserIndexSelectionNiveau(getNombreNiveauxAffiches());
+        } catch (Exception e) {
+            niveauxDisponibles.clear();
+            controleurMenu.normaliserIndexSelectionNiveau(getNombreNiveauxAffiches());
+        }
+    }
+
+    private void lancerNiveauSelectionne() {
+        if (controleurMenu.estRetourNiveauSelectionne(getNombreNiveauxAffiches()) || getNombreNiveauxAffiches() == 0) {
+            return;
+        }
+        try {
+            int index = controleurMenu.getIndexSelectionNiveau();
+            Path chemin = niveauxDisponibles.get(index);
+            Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
+            actionJouer.accept(scene, plateauCharge);
+        } catch (Exception e) {
+            System.err.println("[Niveaux] Impossible de charger le niveau: " + e.getMessage());
+        }
+    }
+
+    private void rafraichirSauvegardes() {
+        sauvegardesDisponibles.clear();
+        try {
+            sauvegardesDisponibles.addAll(ServicePersistance.listerSauvegardesInfos());
+            controleurMenu.normaliserIndexSelectionSauvegarde(getNombreSauvegardesAffichees());
+        } catch (Exception e) {
+            sauvegardesDisponibles.clear();
+            controleurMenu.normaliserIndexSelectionSauvegarde(getNombreSauvegardesAffichees());
+        }
+    }
+
+    private void lancerSauvegardeSelectionnee() {
+        if (controleurMenu.estRetourSauvegardeSelectionne(getNombreSauvegardesAffichees()) || getNombreSauvegardesAffichees() == 0) {
+            return;
+        }
+        try {
+            int index = controleurMenu.getIndexSelectionSauvegarde();
+            Path chemin = sauvegardesDisponibles.get(index).getChemin();
+            Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
+            actionJouer.accept(scene, plateauCharge);
+        } catch (Exception e) {
+            System.err.println("[Persistance] Impossible de charger la sauvegarde: " + e.getMessage());
+        }
+    }
+
+    private void supprimerSauvegardeSelectionnee() {
+        if (controleurMenu.estRetourSauvegardeSelectionne(getNombreSauvegardesAffichees()) || getNombreSauvegardesAffichees() == 0) {
+            return;
+        }
+        try {
+            int index = controleurMenu.getIndexSelectionSauvegarde();
+            ServicePersistance.SauvegardeInfo info = sauvegardesDisponibles.get(index);
+            Path chemin = info.getChemin();
+
+            Alert confirmation = new Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Supprimer la sauvegarde '" + info.getNomFichier() + "' ?",
+                ButtonType.YES,
+                ButtonType.NO
+            );
+            confirmation.setTitle("Confirmer la suppression");
+            confirmation.setHeaderText("Cette action est irreversible.");
+
+            Optional<ButtonType> choix = confirmation.showAndWait();
+            if (choix.isEmpty() || choix.get() != ButtonType.YES) {
+                return;
+            }
+
+            ServicePersistance.supprimerSauvegarde(chemin);
+            rafraichirSauvegardes();
+            System.out.println("[Persistance] Sauvegarde supprimee: " + chemin.getFileName());
+        } catch (Exception e) {
+            System.err.println("[Persistance] Echec suppression sauvegarde: " + e.getMessage());
+        }
+    }
+
+    private void dessinerListeSauvegardes(
+        GraphicsContext gc,
+        double carteX,
+        double carteY,
+        double carteLargeur,
+        double carteHauteur,
+        double panneauHauteur
+    ) {
+        if (sauvegardesDisponibles.isEmpty()) {
+            gc.fillText("Aucune sauvegarde trouvee.", carteX + carteLargeur * 0.08, carteY + carteHauteur * 0.28);
+            gc.fillText("Termine une partie pour creer une auto-sauvegarde.", carteX + carteLargeur * 0.08, carteY + carteHauteur * 0.40);
+            gc.fillText("Ctrl+S en jeu pour une sauvegarde nommee.", carteX + carteLargeur * 0.08, carteY + carteHauteur * 0.52);
+            return;
+        }
+
+        double x = carteX + carteLargeur * 0.08;
+        double y0 = carteY + carteHauteur * 0.14;
+        double h = Math.max(46, panneauHauteur * 0.090);
+        double gap = Math.max(6, panneauHauteur * 0.014);
+        int total = getNombreSauvegardesAffichees();
+        int visibles = Math.min(total, ITEMS_VISIBLES);
+        int scrollOffset = calculerScrollSauvegardes();
+        double largeurRow = carteLargeur * 0.84;
+
+        if (scrollOffset > 0) {
+            gc.setFill(Color.web("#bdd9cf"));
+            gc.setFont(Font.font("SansSerif", Math.max(11, panneauHauteur * 0.018)));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.fillText("▲ " + scrollOffset + " au dessus", carteX + carteLargeur / 2.0, y0 - 6);
+            gc.setTextAlign(TextAlignment.LEFT);
+        }
+
+        for (int i = 0; i < visibles; i++) {
+            int indexLogique = scrollOffset + i;
+            boolean selectionnee = !controleurMenu.estRetourSauvegardeSelectionne(total)
+                && indexLogique == controleurMenu.getIndexSelectionSauvegarde();
+            double y = y0 + i * (h + gap);
+
+            Bouton boutonSauvegarde = boutonsSauvegardes[i];
+            boutonSauvegarde.x = x;
+            boutonSauvegarde.y = y;
+            boutonSauvegarde.largeur = largeurRow;
+            boutonSauvegarde.hauteur = h;
+
+            gc.setFill(selectionnee ? Color.web("#f2d974") : Color.web("#2e5b4e"));
+            gc.fillRoundRect(x, y, largeurRow, h, 12, 12);
+            gc.setStroke(selectionnee ? Color.web("#fff6c7") : Color.web("#d7ece4", 0.65));
+            gc.setLineWidth(selectionnee ? 2.5 : 1.5);
+            gc.strokeRoundRect(x, y, largeurRow, h, 12, 12);
+
+            ServicePersistance.SauvegardeInfo info = sauvegardesDisponibles.get(indexLogique);
+            String nom = info.getNomFichier();
+            String meta = info.getDateModificationFormatee() + "  -  " + info.getTailleOctets() + " octets";
+
+            gc.setFill(selectionnee ? Color.web("#2d241c") : Color.web("#e8f3ee"));
+            gc.setFont(Font.font("SansSerif", FontWeight.SEMI_BOLD, Math.max(12, panneauHauteur * 0.024)));
+            gc.fillText(nom, x + 12, y + h * 0.44);
+            gc.setFont(Font.font("SansSerif", Math.max(10, panneauHauteur * 0.020)));
+            gc.fillText(meta, x + 12, y + h * 0.78);
+        }
+
+        int restant = total - scrollOffset - visibles;
+        gc.setFill(Color.web("#bdd9cf"));
+        gc.setFont(Font.font("SansSerif", Math.max(11, panneauHauteur * 0.018)));
+        if (restant > 0) {
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.fillText("▼ " + restant + " en dessous", carteX + carteLargeur / 2.0, y0 + visibles * (h + gap) + 4);
+            gc.setTextAlign(TextAlignment.LEFT);
+        } else {
+            gc.fillText("Suppr: Delete/Backspace", x, y0 + visibles * (h + gap) + 14);
+        }
+    }
+
+    private void dessinerListeNiveaux(
+        GraphicsContext gc,
+        double carteX,
+        double carteY,
+        double carteLargeur,
+        double carteHauteur,
+        double panneauHauteur
+    ) {
+        if (niveauxDisponibles.isEmpty()) {
+            gc.fillText("Aucun niveau trouve dans le dossier niveau/.", carteX + carteLargeur * 0.08, carteY + carteHauteur * 0.28);
+            gc.fillText("Ajoute des fichiers .txt dans niveau/.", carteX + carteLargeur * 0.08, carteY + carteHauteur * 0.40);
+            return;
+        }
+
+        double x = carteX + carteLargeur * 0.08;
+        double y0 = carteY + carteHauteur * 0.14;
+        double h = Math.max(42, panneauHauteur * 0.085);
+        double gap = Math.max(6, panneauHauteur * 0.014);
+        int total = getNombreNiveauxAffiches();
+        int visibles = Math.min(total, ITEMS_VISIBLES);
+        int scrollOffset = calculerScrollNiveaux();
+        double largeurRow = carteLargeur * 0.84;
+
+        if (scrollOffset > 0) {
+            gc.setFill(Color.web("#bdd9cf"));
+            gc.setFont(Font.font("SansSerif", Math.max(11, panneauHauteur * 0.018)));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.fillText("▲ " + scrollOffset + " au dessus", carteX + carteLargeur / 2.0, y0 - 6);
+            gc.setTextAlign(TextAlignment.LEFT);
+        }
+
+        for (int i = 0; i < visibles; i++) {
+            int indexLogique = scrollOffset + i;
+            boolean selectionnee = !controleurMenu.estRetourNiveauSelectionne(total)
+                && indexLogique == controleurMenu.getIndexSelectionNiveau();
+            double y = y0 + i * (h + gap);
+
+            Bouton boutonNiveau = boutonsNiveaux[i];
+            boutonNiveau.x = x;
+            boutonNiveau.y = y;
+            boutonNiveau.largeur = largeurRow;
+            boutonNiveau.hauteur = h;
+
+            gc.setFill(selectionnee ? Color.web("#f2d974") : Color.web("#2e5b4e"));
+            gc.fillRoundRect(x, y, largeurRow, h, 12, 12);
+            gc.setStroke(selectionnee ? Color.web("#fff6c7") : Color.web("#d7ece4", 0.65));
+            gc.setLineWidth(selectionnee ? 2.5 : 1.5);
+            gc.strokeRoundRect(x, y, largeurRow, h, 12, 12);
+
+            String nom = niveauxDisponibles.get(indexLogique).getFileName().toString();
+            gc.setFill(selectionnee ? Color.web("#2d241c") : Color.web("#e8f3ee"));
+            gc.setFont(Font.font("SansSerif", FontWeight.SEMI_BOLD, Math.max(12, panneauHauteur * 0.024)));
+            gc.fillText(nom, x + 12, y + h * 0.62);
+        }
+
+        int restant = total - scrollOffset - visibles;
+        if (restant > 0) {
+            gc.setFill(Color.web("#bdd9cf"));
+            gc.setFont(Font.font("SansSerif", Math.max(11, panneauHauteur * 0.018)));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.fillText("▼ " + restant + " en dessous", carteX + carteLargeur / 2.0, y0 + visibles * (h + gap) + 4);
+            gc.setTextAlign(TextAlignment.LEFT);
+        }
+    }
+
+    private int getNombreSauvegardesAffichees() {
+        return sauvegardesDisponibles.size();
+    }
+
+    private int getNombreNiveauxAffiches() {
+        return niveauxDisponibles.size();
+    }
+
+    private int calculerScrollNiveaux() {
+        int total = niveauxDisponibles.size();
+        int visibles = Math.min(total, ITEMS_VISIBLES);
+        return Math.max(0, Math.min(controleurMenu.getIndexSelectionNiveau(), total - visibles));
+    }
+
+    private int calculerScrollSauvegardes() {
+        int total = sauvegardesDisponibles.size();
+        int visibles = Math.min(total, ITEMS_VISIBLES);
+        return Math.max(0, Math.min(controleurMenu.getIndexSelectionSauvegarde(), total - visibles));
     }
 }
