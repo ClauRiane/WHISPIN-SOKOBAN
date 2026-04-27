@@ -3,6 +3,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,6 +12,114 @@ public final class PlateauTexteFichier {
     private static final Pattern PATTERN_ENTETE = Pattern.compile("^([A-Za-z])\\s+(\\d+)$");
 
     private PlateauTexteFichier() {
+    }
+
+    /**
+     * Charge tous les mondes d'un fichier multi-monde.
+     * Chaque monde commence par une ligne d'en-tête "lettre taille" (ex: "A 6").
+     * Les mondes sont séparés par une ligne vide ou directement l'un après l'autre.
+     *
+     * @param cheminFichier chemin du fichier source
+     * @return map lettre → grille pour chaque monde trouvé, dans l'ordre de lecture
+     * @throws IOException en cas d'erreur de lecture
+     */
+    public static Map<Character, ArrayList<ArrayList<Case>>> chargerTousLesMondes(Path cheminFichier) throws IOException {
+        ArrayList<String> toutesLignes = new ArrayList<>(Files.readAllLines(cheminFichier, StandardCharsets.UTF_8));
+        Map<Character, ArrayList<ArrayList<Case>>> mondes = new LinkedHashMap<>();
+
+        int i = 0;
+        while (i < toutesLignes.size()) {
+            String ligne = toutesLignes.get(i).trim();
+
+            // Sauter les lignes vides entre mondes
+            if (ligne.isEmpty()) {
+                i++;
+                continue;
+            }
+
+            // Chercher un en-tête de monde
+            Matcher m = PATTERN_ENTETE.matcher(ligne);
+            if (!m.matches()) {
+                i++;
+                continue;
+            }
+
+            char lettre = Character.toUpperCase(m.group(1).charAt(0));
+            int taille = Integer.parseInt(m.group(2));
+            i++;
+
+            // Lire les `taille` lignes de la grille
+            ArrayList<String> lignesMonde = new ArrayList<>();
+            while (lignesMonde.size() < taille && i < toutesLignes.size()) {
+                lignesMonde.add(toutesLignes.get(i));
+                i++;
+            }
+
+            if (lignesMonde.size() != taille) {
+                throw new IllegalArgumentException(
+                    "Le monde '" + lettre + "' annonce " + taille
+                    + " lignes mais seulement " + lignesMonde.size() + " sont disponibles."
+                );
+            }
+
+            ArrayList<ArrayList<Case>> grille = convertirLignesVersGrilleSouple(lignesMonde, lettre);
+            mondes.put(lettre, grille);
+        }
+
+        if (mondes.isEmpty()) {
+            throw new IllegalArgumentException("Aucun monde trouvé dans le fichier.");
+        }
+        return mondes;
+    }
+
+    /**
+     * Convertit des lignes ASCII en grille, en acceptant les lettres minuscules/majuscules
+     * comme boites-mondes (Sokoban récursif).
+     * Les symboles classiques sont inchangés ; toute lettre alphabétique inconnue
+     * est traitée comme une boite-monde (placeholder CaseBoite).
+     */
+    private static ArrayList<ArrayList<Case>> convertirLignesVersGrilleSouple(
+        ArrayList<String> lignes, char lettreContexte
+    ) {
+        if (lignes == null || lignes.isEmpty()) {
+            throw new IllegalArgumentException("Le monde '" + lettreContexte + "' est vide.");
+        }
+        int largeur = 0;
+        for (String l : lignes) {
+            if (l.length() > largeur) largeur = l.length();
+        }
+
+        ArrayList<ArrayList<Case>> grille = new ArrayList<>();
+        int personnages = 0;
+        for (String ligneTexte : lignes) {
+            ArrayList<Case> elementsDeLigne = new ArrayList<>();
+            for (int col = 0; col < largeur; col++) {
+                char c = col < ligneTexte.length() ? ligneTexte.charAt(col) : ' ';
+                Case cellule;
+                // Symboles classiques
+                if (c == '#' || c == ' ' || c == '.' || c == '$' || c == '*' || c == '@' || c == '+') {
+                    cellule = convertirSymboleVersElement(c);
+                } else if (Character.isLetter(c)) {
+                    // Lettre minuscule = boite-monde hors cible, majuscule = boite-monde sur cible
+                    // La lettre référence le monde du même nom (en majuscule)
+                    boolean surCible = Character.isUpperCase(c);
+                    cellule = new CaseBoiteMonde(c, surCible);
+                } else {
+                    cellule = CaseVide.getInstance();
+                }
+                if (cellule.estPersonnageCible()) personnages++;
+                elementsDeLigne.add(cellule);
+            }
+            grille.add(elementsDeLigne);
+        }
+
+        // Un monde peut légitimement ne pas avoir de personnage (monde secondaire)
+        if (personnages > 1) {
+            throw new IllegalArgumentException(
+                "Le monde '" + lettreContexte + "' contient " + personnages + " personnages (max 1)."
+            );
+        }
+        return grille;
     }
 
     /**
