@@ -295,7 +295,7 @@ public class Plateau {
             setCase(posApresBoite, nouvelleBoite);
             
             // Le personnage prend la place de la boite
-            boolean personnageSurCible = prochaineCase.estCible();
+            boolean personnageSurCible = boiteEtaitSurCible;
             Personnage nouveauPersonnage = new Personnage(personnageSurCible);
             setCase(prochainePos, nouveauPersonnage);
             
