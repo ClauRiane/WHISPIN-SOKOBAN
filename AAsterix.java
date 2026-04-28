@@ -1,152 +1,147 @@
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Stack;
 
-public class AAsterix{
-    // Constante de classe (static final)
-    private static final int[] dx = {-1, 1, 0, 0};
-    private static final int[] dy = {0, 0, -1, 1};
-    // Vérifie si une case est bien dans les limites de la grille (pas hors tableau)
-    public boolean isValid(int[][] grid, int rows, int cols, Pair point){
-        if(rows > 0 && cols > 0){
-            return (point.getFirst() >= 0) && (point.getFirst() < rows) && (point.getSecond() >= 0) && (point.getSecond() < cols);
-        }
+/**
+ * Algorithme A* pour trouver le chemin le plus court sur la grille Sokoban.
+ *
+ * Convention de la grille int[][] :
+ *   grid[row][col]  où  row = axe Y (vertical), col = axe X (horizontal)
+ *   1 = case traversable, 0 = mur ou boîte (bloqué)
+ */
+public class AAsterix {
 
-        return false;
+    // Directions : haut, bas, gauche, droite (en delta row, delta col)
+    private static final int[] dRow = {-1, 1, 0, 0};
+    private static final int[] dCol = { 0, 0,-1, 1};
+
+    /** Vérifie qu'une position est dans les limites de la grille. */
+    public boolean isValid(int[][] grid, int rows, int cols, Pair point) {
+        return rows > 0 && cols > 0
+            && point.getFirst()  >= 0 && point.getFirst()  < rows
+            && point.getSecond() >= 0 && point.getSecond() < cols;
     }
 
-    // Vérifie si la case est un mur(0) ou un passage(1)
-    public boolean isUnBlocked(int[][] grid, int rows, int cols, Pair point){
-        return isValid(grid, rows, cols, point) && grid[point.getFirst()][point.getSecond()] == 1;
+    /** Vérifie que la case n'est pas bloquée (0=mur/boîte, 1=libre). */
+    public boolean isUnBlocked(int[][] grid, int rows, int cols, Pair point) {
+        return isValid(grid, rows, cols, point)
+            && grid[point.getFirst()][point.getSecond()] == 1;
     }
 
-    // Method to check if destination cell has been already reached
-    public boolean isDestination(Pair position, Pair dest){
-        return position == dest || position.equals(dest);
+    /** Vérifie si la position courante est la destination. */
+    public boolean isDestination(Pair position, Pair dest) {
+        return position.equals(dest);
     }
 
-    // Calcule la distance de "Manhattan" (Déplacement vertical/horizontal uniquement)...
-    public double calculateHValue(Pair src, Pair dest){
-        // Formule de Manhattan : |x1 - x2| + |y1 - y2|
-        return Math.abs(src.getFirst() - dest.getFirst()) + Math.abs(src.getSecond() - dest.getSecond());
+    /** Distance de Manhattan comme heuristique. */
+    public double calculateHValue(Pair src, Pair dest) {
+        return Math.abs(src.getFirst()  - dest.getFirst())
+             + Math.abs(src.getSecond() - dest.getSecond());
     }
 
-    // Method for tracking the path from source to destination
-    public void tracePath(Cell[][] cellDetails, int cols, int rows, Pair dest){
-        System.err.println("The Path : ");
-        Stack<Pair> path = new Stack<>();
-
+    /**
+     * Reconstruit le chemin de src à dest à partir des cellules parentes.
+     * Retourne une liste ordonnée Pair(row,col), src exclu, dest inclus.
+     */
+    private List<Pair> tracePath(Cell[][] cellDetails, Pair src, Pair dest) {
+        Stack<Pair> stack = new Stack<>();
         int row = dest.getFirst();
         int col = dest.getSecond();
 
-        Pair nextNode = cellDetails[row][col].parent;
-        do { 
-            path.push(new Pair(row, col));
-            nextNode = cellDetails[row][col].parent;
-            row = nextNode.getFirst();
-            col = nextNode.getSecond();
-        } while (cellDetails[row][col].parent != nextNode);
-
-        while(!path.empty()){
-            Pair p = path.peek();
-            path.pop();
-            System.out.println("-> (" + p.getFirst() + "," + p.getSecond() + ") ");
+        while (!(row == src.getFirst() && col == src.getSecond())) {
+            stack.push(new Pair(row, col));
+            Pair parent = cellDetails[row][col].parent;
+            row = parent.getFirst();
+            col = parent.getSecond();
         }
+
+        List<Pair> path = new ArrayList<>();
+        while (!stack.isEmpty()) {
+            path.add(stack.pop());
+        }
+        return path;
     }
 
-    public void aStarSearch(int[][] grid, int rows, int cols, Pair src, Pair dest){
-        // Vérifie si le départ est valide
-        if(!isValid(grid, rows, cols, src)){
-            System.out.println("Source is invalid...");
-            return;
+    /**
+     * Lance la recherche A* et retourne le chemin ordonné.
+     *
+     * @param grid  grille [rows][cols] : 1 = traversable, 0 = bloqué
+     * @param rows  nombre de lignes
+     * @param cols  nombre de colonnes
+     * @param src   position de départ  Pair(row, col)
+     * @param dest  position d'arrivée  Pair(row, col)
+     * @return liste de Pair(row,col) représentant les cases à parcourir
+     *         (src exclu, dest inclus), liste vide si déjà sur place,
+     *         ou null si aucun chemin trouvé.
+     */
+    public List<Pair> aStarSearch(int[][] grid, int rows, int cols, Pair src, Pair dest) {
+        if (!isValid(grid, rows, cols, src)) {
+            System.out.println("[A*] Source invalide.");
+            return null;
+        }
+        if (!isValid(grid, rows, cols, dest)) {
+            System.out.println("[A*] Destination invalide.");
+            return null;
+        }
+        if (isDestination(src, dest)) {
+            return new ArrayList<>();
         }
 
-        // Vérifie si l'arrivée est valide
-        if(!(isValid(grid, rows, cols, dest))){
-            System.out.println("Destination is invalid...");
-            return;
-        }
+        boolean[][] closedList  = new boolean[rows][cols];
+        Cell[][]    cellDetails = new Cell[rows][cols];
 
-        if(isDestination(src, dest)){
-            System.out.println("We're already (t)here...");
-            return;
-        }
+        int si = src.getFirst();
+        int sj = src.getSecond();
+        cellDetails[si][sj] = new Cell();
+        cellDetails[si][sj].f = 0.0;
+        cellDetails[si][sj].g = 0.0;
+        cellDetails[si][sj].h = 0.0;
+        cellDetails[si][sj].parent = new Pair(si, sj); // pointe sur lui-même = marqueur de source
 
-        // Création de closedList (booléens) pour se souvenir des cases déjà traitées
-        boolean[][] closedList = new boolean[rows][cols];
+        PriorityQueue<Details> openList = new PriorityQueue<>(
+            (o1, o2) -> Double.compare(o1.getValue(), o2.getValue())
+        );
+        openList.add(new Details(0.0, si, sj));
 
-        // Création de cellDetails pour stocker les coûts f, g, h de chaque case
-        Cell[][] cellDetails = new Cell[rows][cols];
-
-        int i, j;
-
-        // Initialisation
-        i = src.getFirst();
-        j = src.getSecond();
-        cellDetails[i][j] = new Cell();
-        cellDetails[i][j].f = 0.0;
-        cellDetails[i][j].g = 0.0;
-        cellDetails[i][j].h = 0.0;
-        cellDetails[i][j].parent = new Pair(i, j);
-
-        // Création de la liste ouverte qui est une file d'attente prioritaire
-        // Elle y met le point de départ
-        PriorityQueue<Details> openList = new PriorityQueue<>((o1, o2) -> (int) Math.round(o1.getValue() - o2.getValue()));
-
-        openList.add(new Details(0.0, i, j));
-
-        // Tant qu'il y a des cases à explorer
-        while(!openList.isEmpty()){
-            Details p = openList.peek();
-            // Ajout dans la closedList
-            i = p.getI(); // Second element of tuple
-            j = p.getJ(); // Third element of tuple
-
-            // Remove from the open list
-            openList.poll();
+        while (!openList.isEmpty()) {
+            Details p = openList.poll();
+            int i = p.getI();
+            int j = p.getJ();
             closedList[i][j] = true;
 
-            // Generating all the 4 neighbors of the cell
-            for(int k = 0; k < 4; k++){
-                int newX = i + dx[k];
-                int newY = j + dy[k];
-                Pair neighbour = new Pair(newX, newY);
-                if(isValid(grid, rows, cols, neighbour)){
-                    // if(cellDetails[neighbour.getFirst()] == null){
-                    //     cellDetails[neighbour.getFirst()] = new Cell[cols];
-                    // }
+            for (int k = 0; k < 4; k++) {
+                int ni = i + dRow[k];
+                int nj = j + dCol[k];
+                Pair neighbour = new Pair(ni, nj);
 
-                    if(cellDetails[neighbour.getFirst()][neighbour.getSecond()] == null){
-                        cellDetails[neighbour.getFirst()][neighbour.getSecond()] = new Cell();
-                    }
+                if (!isValid(grid, rows, cols, neighbour)) continue;
 
-                    if(isDestination(neighbour, dest)){
-                        cellDetails[neighbour.getFirst()][neighbour.getSecond()].parent = new Pair(i, j);
-                        System.out.println("The destination cell is found");
-                        tracePath(cellDetails, rows, cols, dest);
-                        return;
-                    }
+                if (cellDetails[ni][nj] == null) {
+                    cellDetails[ni][nj] = new Cell();
+                }
 
-                    else if (!closedList[neighbour.getFirst()][neighbour.getSecond()] && isUnBlocked(grid, rows, cols, neighbour)){
-                        double gNew, hNew, fNew;
-                        gNew = cellDetails[i][j].g + 1.0;
-                        hNew = calculateHValue(neighbour, dest);
-                        fNew = gNew + hNew;
+                if (isDestination(neighbour, dest)) {
+                    cellDetails[ni][nj].parent = new Pair(i, j);
+                    return tracePath(cellDetails, src, dest);
+                }
 
-                        if(cellDetails[neighbour.getFirst()][neighbour.getSecond()].f == -1 || cellDetails[neighbour.getFirst()][neighbour.getSecond()].f > fNew){
-                            openList.add(new Details(fNew, neighbour.getFirst(), neighbour.getSecond()));
+                if (!closedList[ni][nj] && isUnBlocked(grid, rows, cols, neighbour)) {
+                    double gNew = cellDetails[i][j].g + 1.0;
+                    double hNew = calculateHValue(neighbour, dest);
+                    double fNew = gNew + hNew;
 
-                            // Update the details of this
-                            // cell
-                            cellDetails[neighbour.getFirst()][neighbour.getSecond()].g = gNew;
-                            cellDetails[neighbour.getFirst()][neighbour.getSecond()].f = fNew;
-                            cellDetails[neighbour.getFirst()][neighbour.getSecond()].parent = new Pair(i, j);
-                        }
+                    if (cellDetails[ni][nj].f < 0 || cellDetails[ni][nj].f > fNew) {
+                        openList.add(new Details(fNew, ni, nj));
+                        cellDetails[ni][nj].g = gNew;
+                        cellDetails[ni][nj].f = fNew;
+                        cellDetails[ni][nj].parent = new Pair(i, j);
                     }
                 }
             }
         }
 
-        System.out.println("Failed to find the Destination Cell");
+        System.out.println("[A*] Aucun chemin trouvé.");
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-// Creating a shortcut for tuple<double, int, int> type
+// Créer un raccourci pour le type tuple<double, int, int>
 public class Details{
     private double value;
     private int i;

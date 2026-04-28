@@ -18,6 +18,53 @@ public final class RenduPlateau {
 
     private RenduPlateau() {}
 
+    /**
+     * Convertit des coordonnées pixels (clic souris sur le canvas) en
+     * coordonnées de case (col, row) dans la grille.
+     *
+     * Reproduit exactement le calcul de mise en page de {@code dessiner()}.
+     *
+     * @param mouseX   coordonnée X du clic (pixels)
+     * @param mouseY   coordonnée Y du clic (pixels)
+     * @param W        largeur totale du canvas (pixels)
+     * @param H        hauteur totale du canvas (pixels)
+     * @param nLignes  nombre de lignes de la grille
+     * @param nColonnes nombre de colonnes de la grille
+     * @return int[]{col, row} si le clic est dans la grille, null sinon
+     */
+    public static int[] pixelVersCase(double mouseX, double mouseY,
+                                      double W, double H,
+                                      int nLignes, int nColonnes) {
+        if (nLignes <= 0 || nColonnes <= 0) return null;
+
+        double marge     = Math.min(W, H) * 0.06;
+        double cadreX    = marge;
+        double cadreY    = marge;
+        double cadreW    = W - marge * 2;
+        double cadreH    = H - marge * 2;
+
+        double pad       = BORD_CADRE + 8;
+        double anneauX   = cadreX + pad;
+        double anneauY   = cadreY + pad;
+        double anneauW   = cadreW - pad * 2;
+        double anneauH   = cadreH - pad * 2;
+
+        double champX    = anneauX + EPAISSEUR_ANNEAU;
+        double champY    = anneauY + EPAISSEUR_ANNEAU;
+        double champW    = anneauW - EPAISSEUR_ANNEAU * 2;
+        double champH    = anneauH - EPAISSEUR_ANNEAU * 2;
+
+        double tailleCase = Math.min(champW / nColonnes, champH / nLignes);
+        double origineX   = champX + (champW - nColonnes * tailleCase) / 2.0;
+        double origineY   = champY + (champH - nLignes  * tailleCase) / 2.0;
+
+        int col = (int) ((mouseX - origineX) / tailleCase);
+        int row = (int) ((mouseY - origineY) / tailleCase);
+
+        if (col < 0 || col >= nColonnes || row < 0 || row >= nLignes) return null;
+        return new int[]{col, row}; // col = x, row = y
+    }
+
     public static void redessiner(
         Canvas canvas,
         double largeur,

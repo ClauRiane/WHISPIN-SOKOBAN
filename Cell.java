@@ -14,7 +14,7 @@
 
 public class Cell {
     public Pair parent;
-    // f = g + h, where h is heuristic (check to the definition if you don't know what is it)
+    // f = g + h, où h est une heuristique
     public double f, g, h;
 
     public Cell(){
