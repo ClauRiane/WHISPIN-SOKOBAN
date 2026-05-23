@@ -8,49 +8,58 @@ import java.util.Map;
 /**
  * Contient l'ensemble des mondes du Sokoban récursif et l'état de navigation du joueur.
  *
- * Le joueur se trouve toujours dans un monde courant à une position donnée.
- * Quand il entre dans une boîte-monde, le contexte courant est empilé et on
- * bascule dans le monde référencé. Quand il sort, on dépile.
+ * Le joueur se trouve toujours dans un "monde courant".
+ * Quand il entre dans une boîte-monde, le contexte actuel est empilé
+ * et on bascule dans le monde référencé. Quand il sort, on dépile.
  *
- * Usage typique :
+ * Format d'un fichier multi-monde attendu :
  * <pre>
- *   Map&lt;Character, ArrayList&lt;ArrayList&lt;Case&gt;&gt;&gt; grilles =
- *       PlateauTexteFichier.chargerTousLesMondes(chemin);
- *   Multivers mv = Multivers.depuisGrilles(grilles);
+ *   A 6
+ *   ######
+ *   # @  #
+ *   # b. #
+ *   ######
+ *   B 4
+ *   ####
+ *   #$.#
+ *   ####
  * </pre>
  */
 public class Multivers {
 
     /**
-     * Représente un contexte de navigation sauvegardé lors de l'entrée dans une boîte-monde.
-     * Permet de retrouver le monde parent et la position où réapparaître lors de la sortie.
+     * Contexte sauvegardé à chaque entrée dans une boîte-monde.
+     * Permet de retrouver le monde parent et l'endroit où réapparaître.
      */
     public static final class ContexteNavigation {
-        /** Identifiant du monde parent. */
+        /** Identifiant du monde parent (celui qu'on a quitté). */
         public final char mondePrecedent;
-        /** Position de la boîte-monde dans le monde parent (pour mise en surbrillance). */
+        /** Position de la boîte-monde dans le monde parent (pour la surbrillance). */
         public final Position positionBoite;
-        /** Position dans le monde parent où le joueur réapparaître en sortant (case après la boîte). */
+        /** Case dans le monde parent où le joueur réapparaît en sortant. */
         public final Position positionSortie;
+        /** Direction utilisée pour entrer (utile pour choisir le bon côté en sortant). */
+        public final Direction directionEntree;
 
+        public ContexteNavigation(char mondePrecedent, Position positionBoite,
+                                   Position positionSortie, Direction directionEntree) {
+            this.mondePrecedent  = mondePrecedent;
+            this.positionBoite   = positionBoite;
+            this.positionSortie  = positionSortie;
+            this.directionEntree = directionEntree;
+        }
+
+        // Constructeur de compatibilité sans direction (ancienne API)
         public ContexteNavigation(char mondePrecedent, Position positionBoite, Position positionSortie) {
-            this.mondePrecedent = mondePrecedent;
-            this.positionBoite = positionBoite;
-            this.positionSortie = positionSortie;
+            this(mondePrecedent, positionBoite, positionSortie, Direction.DROITE);
         }
     }
 
-    /**
-     * Résultat d'une tentative de déplacement dans le multivers.
-     */
+    /** Résultat d'une tentative de déplacement. */
     public enum ResultatDeplacement {
-        /** Le personnage s'est déplacé normalement (ou a poussé une boîte). */
         DEPLACE,
-        /** Le personnage est entré dans une boîte-monde. */
         ENTRE,
-        /** Le personnage est sorti d'un monde enfant. */
         SORTI,
-        /** Le déplacement a été bloqué. */
         BLOQUE
     }
 
@@ -60,32 +69,25 @@ public class Multivers {
     /** Lettre du monde dans lequel le joueur se trouve actuellement. */
     private char mondeCourant;
 
-    /** Pile de contextes pour pouvoir revenir au monde parent (entrée dans une boîte). */
+    /** Pile de contextes pour pouvoir revenir dans le monde parent. */
     private final Deque<ContexteNavigation> pileContextes;
 
-    /**
-     * Construit un Multivers à partir d'une map lettre→plateau déjà instanciés.
-     * Le premier monde de la map est considéré comme le monde de départ.
-     *
-     * @param mondes map des plateaux, dans l'ordre d'insertion
-     * @throws IllegalArgumentException si la map est vide
-     */
+    /** Lettre du monde racine (le tout premier, jamais changée). */
+    private final char mondeRacine;
+
     public Multivers(Map<Character, Plateau> mondes) {
         if (mondes == null || mondes.isEmpty()) {
             throw new IllegalArgumentException("Un Multivers doit contenir au moins un monde.");
         }
-        this.mondes = new LinkedHashMap<>(mondes);
+        this.mondes       = new LinkedHashMap<>(mondes);
         this.mondeCourant = mondes.keySet().iterator().next();
+        this.mondeRacine  = this.mondeCourant;
         this.pileContextes = new ArrayDeque<>();
     }
 
     /**
-     * Construit un Multivers directement à partir des grilles brutes.
-     * Chaque grille est convertie en {@link Plateau}.
-     * Le premier monde trouvé est celui de départ.
-     *
-     * @param grilles map lettre→grille de cases
-     * @return nouveau Multivers initialisé
+     * Construit un Multivers directement depuis des grilles brutes.
+     * Le premier monde de la map est le monde de départ.
      */
     public static Multivers depuisGrilles(Map<Character, ArrayList<ArrayList<Case>>> grilles) {
         Map<Character, Plateau> plateaux = new LinkedHashMap<>();
@@ -95,82 +97,49 @@ public class Multivers {
         return new Multivers(plateaux);
     }
 
-    // ──────────────────────────────────────────────
-    // Accesseurs sur le monde courant
-    // ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // Accesseurs
+    // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Retourne l'identifiant du monde courant.
-     *
-     * @return lettre du monde courant
-     */
-    public char getMondeCourant() {
-        return mondeCourant;
-    }
+    public char getMondeCourant() { return mondeCourant; }
 
-    /**
-     * Retourne le plateau du monde courant.
-     *
-     * @return plateau actif
-     */
-    public Plateau getPlateauCourant() {
-        return mondes.get(mondeCourant);
-    }
+    public Plateau getPlateauCourant() { return mondes.get(mondeCourant); }
 
-    /**
-     * Retourne un plateau par son identifiant.
-     *
-     * @param lettre identifiant du monde
-     * @return plateau correspondant, ou null si inexistant
-     */
-    public Plateau getPlateau(char lettre) {
-        return mondes.get(Character.toUpperCase(lettre));
-    }
+    public Plateau getPlateau(char lettre) { return mondes.get(Character.toUpperCase(lettre)); }
 
-    /**
-     * Vérifie si un monde existe dans le Multivers.
-     *
-     * @param lettre identifiant du monde
-     * @return true si le monde existe
-     */
     public boolean existeMonde(char lettre) {
         return mondes.containsKey(Character.toUpperCase(lettre));
     }
 
-    /**
-     * Retourne tous les mondes.
-     *
-     * @return map non modifiable lettre→plateau
-     */
     public Map<Character, Plateau> getTousLesMondes() {
         return java.util.Collections.unmodifiableMap(mondes);
     }
 
-    // ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Navigation entre mondes
-    // ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Entre dans une boîte-monde : empile le contexte courant et bascule vers le monde cible.
-     *
-     * @param identifiantCible lettre du monde dans lequel entrer
-     * @param positionSortie   position dans le monde parent où réapparaître en sortant
-     * @throws IllegalArgumentException si le monde cible n'existe pas
      */
-    public void entrerDans(char identifiantCible, Position positionBoite, Position positionSortie) {
+    public void entrerDans(char identifiantCible, Position positionBoite,
+                            Position positionSortie, Direction directionEntree) {
         char cible = Character.toUpperCase(identifiantCible);
         if (!existeMonde(cible)) {
             throw new IllegalArgumentException("Le monde '" + cible + "' n'existe pas.");
         }
-        pileContextes.push(new ContexteNavigation(mondeCourant, positionBoite, positionSortie));
+        pileContextes.push(new ContexteNavigation(mondeCourant, positionBoite,
+                                                   positionSortie, directionEntree));
         mondeCourant = cible;
+    }
+
+    // Compatibilité ancienne API
+    public void entrerDans(char identifiantCible, Position positionBoite, Position positionSortie) {
+        entrerDans(identifiantCible, positionBoite, positionSortie, Direction.DROITE);
     }
 
     /**
      * Sort du monde courant : dépile le contexte et revient dans le monde parent.
-     *
-     * @return le contexte restauré (monde parent + positionSortie)
-     * @throws IllegalStateException si on est déjà dans le monde racine
      */
     public ContexteNavigation sortir() {
         if (pileContextes.isEmpty()) {
@@ -181,49 +150,52 @@ public class Multivers {
         return contexte;
     }
 
-    // ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
     // Déplacement multi-monde
-    // ──────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Tente un déplacement dans la direction donnée, en gérant l'entrée et la sortie des mondes.
+     * Tente un déplacement dans la direction donnée en gérant les transitions entre mondes.
      *
-     * <ul>
-     *   <li>Si la position cible est hors-limites → tente une sortie.</li>
-     *   <li>Si la case cible est une {@link CaseBoiteMonde} non poußable → tente une entrée.</li>
-     *   <li>Sinon → déplacement classique sur le plateau courant.</li>
-     * </ul>
-     *
-     * @param direction direction du déplacement
-     * @return résultat du déplacement
+     * Ordre de priorité :
+     * 1. Hors-limites du plateau → tente une sortie
+     * 2. Mur de bordure → tente une sortie
+     * 3. La case cible est une boîte-monde → tente une entrée
+     * 4. Une boîte simple poussée vers l'extérieur → sortie avec la boîte
+     * 5. Déplacement classique sur le plateau courant
      */
     public ResultatDeplacement deplacer(Direction direction) {
         Plateau plateau = getPlateauCourant();
-        Position posActuelle = plateau.getPositionPersonnage();
+        Position posActuelle  = plateau.getPositionPersonnage();
         Position prochainePos = posActuelle.deplacer(direction);
 
         // Hors-limites → sortir
         if (!plateau.estDansLimites(prochainePos)) {
-            return tenterSortie();
+            return tenterSortie(direction);
         }
 
         Case prochaineCase = plateau.getCase(prochainePos);
 
-        // Mur de bordure → sortir (les mondes-boîtes ont des murs sur tout le pourtour)
+        // Mur de bordure → sortir (les mondes-boîtes sont entourés de murs)
         if (prochaineCase instanceof CaseMur && plateau.estSurBordure(prochainePos)) {
-            return tenterSortie();
+            return tenterSortie(direction);
         }
 
-        // Boîte-monde non poussable → entrer
-        if (prochaineCase instanceof CaseBoiteMonde bm && !plateau.peutSeDeplacer(direction)) {
-            return tenterEntree(bm, prochainePos, direction);
+        // Boîte-monde détectée
+        if (prochaineCase instanceof CaseBoiteMonde bm) {
+            // On ne peut entrer que si on ne peut pas pousser la boîte normalement
+            // (i.e. la case derrière la boîte n'est pas libre ou c'est un mur de fond)
+            if (!plateau.peutSeDeplacer(direction)) {
+                return tenterEntree(bm, prochainePos, direction);
+            }
+            // Sinon, la boîte-monde est poussable normalement
         }
 
-        // Boîte simple poussée vers l'extérieur d'un monde enfant → sortir avec la boîte
-        if (prochaineCase instanceof CaseBoite
-            && !(prochaineCase instanceof CaseBoiteMonde)
-            && !plateau.peutSeDeplacer(direction)
-            && pousseVersExterieur(plateau, prochainePos, direction)) {
+        // Boîte simple poussée hors du monde courant (vers un mur de bordure)
+        if (prochaineCase instanceof CaseBoite boite
+                && !(prochaineCase instanceof CaseBoiteMonde)
+                && !plateau.peutSeDeplacer(direction)
+                && pousseVersExterieur(plateau, prochainePos, direction)) {
             return tenterSortieAvecBoite(prochainePos, direction);
         }
 
@@ -232,62 +204,98 @@ public class Multivers {
         return deplace ? ResultatDeplacement.DEPLACE : ResultatDeplacement.BLOQUE;
     }
 
-    /**
-     * Indique si la boîte poussée est bien orientée vers l'extérieur du monde courant.
-     */
+    /** Vérifie si la boîte à la position donnée est contre un mur de bordure. */
     private boolean pousseVersExterieur(Plateau plateau, Position posBoite, Direction direction) {
         return switch (direction) {
             case GAUCHE -> posBoite.getx() == 1;
             case DROITE -> posBoite.getx() == plateau.getLargeur() - 2;
-            case HAUT -> posBoite.gety() == 1;
-            case BAS -> posBoite.gety() == plateau.getHauteur() - 2;
+            case HAUT   -> posBoite.gety() == 1;
+            case BAS    -> posBoite.gety() == plateau.getHauteur() - 2;
         };
     }
 
     /**
      * Tente d'entrer dans une boîte-monde.
-     * Calcule la position de sortie (case après la boîte dans le monde parent),
-     * bascule dans le monde enfant et téléporte le joueur à la première case libre.
+     * Calcule la position de sortie (case juste après la boîte dans le parent),
+     * empile le contexte et téléporte le joueur côté opposé dans le monde enfant.
      */
     private ResultatDeplacement tenterEntree(CaseBoiteMonde boite, Position posBoite, Direction direction) {
         char identifiant = boite.getIdentifiantMonde();
         if (!existeMonde(identifiant)) {
+            // La boîte-monde pointe sur un monde inexistant → bloqué
             return ResultatDeplacement.BLOQUE;
         }
-        // Où réapparaître dans le monde parent quand on en sort
-        Position positionSortie = posBoite.deplacer(direction);
-        entrerDans(identifiant, posBoite, positionSortie);
 
-        // Téléporter le joueur dans le nouveau monde
+        // La position de sortie est la case juste derrière la boîte dans le monde parent.
+        // Si elle est hors limites ou bloquée, on pourra gérer ça à la sortie.
+        Position positionSortie = posBoite.deplacer(direction);
+
+        entrerDans(identifiant, posBoite, positionSortie, direction);
+
+        // Placer le joueur du côté opposé dans le nouveau monde
         Plateau nouveauPlateau = getPlateauCourant();
         Position entree = nouveauPlateau.positionEntreeDepuis(direction);
         nouveauPlateau.teleporterPersonnage(entree);
+
         return ResultatDeplacement.ENTRE;
     }
 
     /**
      * Tente de sortir du monde courant.
-     * Si la pile est vide (monde racine), le joueur est bloqué.
-     * Sinon, revient dans le monde parent et téléporte le joueur à {@code positionSortie}.
+     * La direction d'entrée mémorisée sert à trouver la bonne position de sortie.
      */
-    private ResultatDeplacement tenterSortie() {
+    private ResultatDeplacement tenterSortie(Direction directionSortie) {
         if (!peutSortir()) {
             return ResultatDeplacement.BLOQUE;
         }
+
         ContexteNavigation contexte = sortir();
         Plateau plateauParent = getPlateauCourant();
-        // Vérifier que la position de sortie est traversable, sinon chercher une case libre proche
+
+        // Essayer la position de sortie prévue
         Position sortie = contexte.positionSortie;
-        if (!plateauParent.estDansLimites(sortie) || plateauParent.getCase(sortie) instanceof CaseMur) {
-            sortie = plateauParent.positionEntreeDepuis(Direction.DROITE); // fallback : 1ère case libre
+
+        // Fallback : si la position prévue est invalide, on cherche à partir du bon côté
+        if (!plateauParent.estDansLimites(sortie)
+                || plateauParent.getCase(sortie) instanceof CaseMur) {
+            // On réutilise la direction d'entrée mémorisée pour trouver le bon bord
+            sortie = trouverSortieValideDepuisBord(plateauParent,
+                                                    contexte.positionBoite,
+                                                    contexte.directionEntree);
         }
+
+        // Dernier recours : première case libre du plateau
+        if (sortie == null || !plateauParent.estDansLimites(sortie)
+                || plateauParent.getCase(sortie) instanceof CaseMur) {
+            sortie = plateauParent.positionEntreeDepuis(Direction.DROITE);
+        }
+
         plateauParent.teleporterPersonnage(sortie);
         return ResultatDeplacement.SORTI;
     }
 
     /**
-     * Sort du monde courant en exportant une boîte simple
-     * vers l'extérieur de la boîte-monde dans le parent.
+     * Cherche une case libre autour de la boîte-monde dans le monde parent,
+     * du côté de la direction d'entrée.
+     */
+    private Position trouverSortieValideDepuisBord(Plateau plateau, Position posBoite, Direction dirEntree) {
+        // La sortie naturelle est la case après la boîte dans la direction d'entrée
+        Position candidate = posBoite.deplacer(dirEntree);
+        if (plateau.estDansLimites(candidate) && !(plateau.getCase(candidate) instanceof CaseMur)) {
+            return candidate;
+        }
+        // Sinon, parcourir autour
+        for (Direction d : Direction.values()) {
+            Position p = posBoite.deplacer(d);
+            if (plateau.estDansLimites(p) && !(plateau.getCase(p) instanceof CaseMur)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Sort du monde courant en exportant une boîte simple dans le monde parent.
      */
     private ResultatDeplacement tenterSortieAvecBoite(Position posBoite, Direction direction) {
         if (!peutSortir()) {
@@ -301,43 +309,40 @@ public class Multivers {
         }
 
         ContexteNavigation contexte = pileContextes.peek();
-        if (contexte == null) {
-            return ResultatDeplacement.BLOQUE;
-        }
+        if (contexte == null) return ResultatDeplacement.BLOQUE;
+
         Plateau plateauParentAvantSortie = getPlateau(contexte.mondePrecedent);
-        Position exportSouhaite = calculerPositionExportSouhaitee(contexte, plateauEnfant, posBoite, direction);
+        Position exportSouhaite = calculerPositionExportSouhaitee(
+            contexte, plateauEnfant, posBoite, direction);
         Position positionExport = trouverPositionExportDisponible(
-            plateauParentAvantSortie,
-            contexte.positionBoite,
-            exportSouhaite,
-            direction
-        );
+            plateauParentAvantSortie, contexte.positionBoite, exportSouhaite, direction);
+
         if (positionExport == null) {
             return ResultatDeplacement.BLOQUE;
         }
 
         // Retirer la boîte du monde enfant
-        plateauEnfant.setCase(posBoite, boite.estSurCible() ? CaseCible.getInstance() : CaseVide.getInstance());
+        plateauEnfant.setCase(posBoite, boite.estSurCible()
+            ? CaseCible.getInstance() : CaseVide.getInstance());
 
-        // Revenir dans le parent et y ajouter la boîte exportée (sans supprimer la boîte-monde)
+        // Revenir dans le parent
         ContexteNavigation contexteSortie = sortir();
         Plateau plateauParent = getPlateauCourant();
+
+        // Placer la boîte exportée dans le parent
         Case caseExport = plateauParent.getCase(positionExport);
         plateauParent.setCase(positionExport, new CaseBoite(caseExport.estCible()));
 
-        // Téléporter le joueur comme pour une sortie standard
-        Position sortie = trouverSortieJoueurValide(plateauParent, contexteSortie.positionSortie, positionExport);
-        if (sortie == null) {
-            return ResultatDeplacement.BLOQUE;
-        }
-        plateauParent.teleporterPersonnage(sortie);
+        // Trouver où mettre le joueur dans le parent
+        Position sortiJoueur = trouverSortieJoueurValide(
+            plateauParent, contexteSortie.positionSortie, positionExport);
+        if (sortiJoueur == null) return ResultatDeplacement.BLOQUE;
+
+        plateauParent.teleporterPersonnage(sortiJoueur);
         return ResultatDeplacement.SORTI;
     }
 
-    /**
-     * Calcule la position d'export désirée autour de la boîte-monde parent,
-     * en tenant compte du côté poussé et du décalage dans le monde enfant.
-     */
+    /** Calcule la position d'export désirée autour de la boîte-monde. */
     private Position calculerPositionExportSouhaitee(
         ContexteNavigation contexte,
         Plateau plateauEnfant,
@@ -354,14 +359,12 @@ public class Multivers {
         return switch (direction) {
             case GAUCHE -> new Position(xPortail - 1, yPortail + dy);
             case DROITE -> new Position(xPortail + 1, yPortail + dy);
-            case HAUT -> new Position(xPortail + dx, yPortail - 1);
-            case BAS -> new Position(xPortail + dx, yPortail + 1);
+            case HAUT   -> new Position(xPortail + dx, yPortail - 1);
+            case BAS    -> new Position(xPortail + dx, yPortail + 1);
         };
     }
 
-    /**
-     * Cherche une case disponible pour la boîte exportée sur le côté correspondant du portail.
-     */
+    /** Cherche une case libre disponible pour poser la boîte exportée. */
     private Position trouverPositionExportDisponible(
         Plateau plateauParent,
         Position posPortail,
@@ -372,61 +375,46 @@ public class Multivers {
         for (int d = 0; d < limite; d++) {
             int[] essais = (d == 0) ? new int[]{0} : new int[]{d, -d};
             for (int decalage : essais) {
-                Position candidate;
-                switch (direction) {
-                    case GAUCHE:
-                    case DROITE:
-                        candidate = new Position(souhaitee.getx(), posPortail.gety() + decalage);
-                        break;
-                    case HAUT:
-                    case BAS:
-                        candidate = new Position(posPortail.getx() + decalage, souhaitee.gety());
-                        break;
-                    default:
-                        candidate = souhaitee;
-                        break;
-                }
-                if (!plateauParent.estDansLimites(candidate)) {
-                    continue;
-                }
-                if (candidate.equals(posPortail)) {
-                    continue;
-                }
-                if (plateauParent.getCase(candidate).estTraversable()) {
-                    return candidate;
-                }
+                Position candidate = switch (direction) {
+                    case GAUCHE, DROITE ->
+                        new Position(souhaitee.getx(), posPortail.gety() + decalage);
+                    case HAUT, BAS ->
+                        new Position(posPortail.getx() + decalage, souhaitee.gety());
+                };
+                if (!plateauParent.estDansLimites(candidate)) continue;
+                if (candidate.equals(posPortail)) continue;
+                if (plateauParent.getCase(candidate).estTraversable()) return candidate;
             }
         }
         return null;
     }
 
-    /**
-     * Trouve une position de téléportation valide pour le joueur dans le parent.
-     */
-    private Position trouverSortieJoueurValide(Plateau plateauParent, Position sortiePreferree, Position caseOccupee) {
+    /** Cherche une position valide pour le joueur dans le monde parent après une sortie. */
+    private Position trouverSortieJoueurValide(Plateau plateauParent,
+                                                Position sortiePreferree,
+                                                Position caseOccupee) {
         if (plateauParent.estDansLimites(sortiePreferree)
-            && !sortiePreferree.equals(caseOccupee)
-            && plateauParent.getCase(sortiePreferree).estTraversable()) {
+                && !sortiePreferree.equals(caseOccupee)
+                && plateauParent.getCase(sortiePreferree).estTraversable()) {
             return sortiePreferree;
         }
-
+        // Parcourir tout le plateau pour trouver une case libre
         for (int y = 0; y < plateauParent.getHauteur(); y++) {
             for (int x = 0; x < plateauParent.getLargeur(); x++) {
                 Position p = new Position(x, y);
-                if (p.equals(caseOccupee)) {
-                    continue;
-                }
-                if (plateauParent.getCase(p).estTraversable()) {
-                    return p;
-                }
+                if (p.equals(caseOccupee)) continue;
+                if (plateauParent.getCase(p).estTraversable()) return p;
             }
         }
         return null;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // État global
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
      * Retourne la pile de navigation dans l'ordre racine → parent immédiat.
-     * Chaque élément indique le monde parent et la boîte dans laquelle on est entré.
      */
     public List<ContexteNavigation> getContextesOrdonnes() {
         List<ContexteNavigation> liste = new ArrayList<>(pileContextes);
@@ -435,8 +423,11 @@ public class Multivers {
     }
 
     /**
-     * Indique si tous les mondes sont gagnés (toutes les boîtes de chaque plateau sur une cible).
-     * C'est la condition de victoire globale du Sokoban récursif.
+     * Victoire globale : toutes les boîtes de CHAQUE monde sont sur une cible.
+     *
+     * Note : un monde sans boîtes est considéré gagné (condition vacuellement vraie).
+     * Cela ne pose pas de problème car un niveau bien conçu a toujours des boîtes
+     * dans au moins le monde principal.
      */
     public boolean estGagne() {
         for (Plateau p : mondes.values()) {
@@ -445,36 +436,24 @@ public class Multivers {
         return true;
     }
 
-    /**
-     * Indique si le joueur peut sortir (n'est pas dans le monde racine).
-     *
-     * @return true si une sortie est possible
-     */
+    /** Indique si le joueur peut sortir du monde courant (n'est pas dans le monde racine). */
     public boolean peutSortir() {
         return !pileContextes.isEmpty();
     }
 
-    /**
-     * Profondeur actuelle de navigation (0 = monde racine).
-     *
-     * @return profondeur
-     */
+    /** Profondeur de navigation (0 = monde racine). */
     public int getProfondeur() {
         return pileContextes.size();
     }
 
     /**
-     * Réinitialise la navigation au monde racine (vide la pile de contextes).
-     * Utile pour le Ctrl+Z complet ou le retour au menu.
+     * Réinitialise la navigation : vide la pile et revient au monde racine.
+     * Utile pour un retour au menu ou un reset complet.
      */
     public void reinitialiserNavigation() {
-        if (!pileContextes.isEmpty()) {
-            ContexteNavigation racine = null;
-            while (!pileContextes.isEmpty()) {
-                racine = pileContextes.pop();
-            }
-            mondeCourant = racine.mondePrecedent;
-        }
+        pileContextes.clear();
+        // On revient toujours au monde racine original, pas juste au parent du dernier contexte.
+        mondeCourant = mondeRacine;
     }
 
     @Override

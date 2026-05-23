@@ -95,6 +95,7 @@ public class MenuPrincipal {
         this.scene = new Scene(racine, LARGEUR, HAUTEUR);
         this.scene.setFill(FOND);
 
+
         this.scene.widthProperty().addListener((obs, oldVal, newVal) -> redessiner());
         this.scene.heightProperty().addListener((obs, oldVal, newVal) -> redessiner());
         this.scene.setOnKeyPressed(e -> gererClavier(e.getCode()));
