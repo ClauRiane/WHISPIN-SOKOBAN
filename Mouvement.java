@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+
 /**
  * Représente un mouvement effectué dans le jeu Sokoban.
  * Un mouvement peut être un déplacement simple ou une poussée de boîte.
@@ -32,13 +34,32 @@ public class Mouvement {
     /** Case boîte originale poussée (conservée pour restaurer le sous-type exact lors du Ctrl+Z). */
     private final CaseBoite caseBoitePoussee;
 
+    /** Monde actif avant une transition recursive (null si mouvement local). */
+    private final Character mondeAvant;
+
+    /** Monde actif apres une transition recursive (null si mouvement local). */
+    private final Character mondeApres;
+
+    /** Snapshot de pile avant transition recursive (ordre racine -> parent immediat). */
+    private final ArrayList<Multivers.ContexteNavigation> pileAvantSnapshot;
+
+    /** Snapshot de pile apres transition recursive (ordre racine -> parent immediat). */
+    private final ArrayList<Multivers.ContexteNavigation> pileApresSnapshot;
+
+    /** Position joueur dans le monde avant (optionnel, annulation inter-monde). */
+    private final Position positionJoueurMondeAvant;
+
+    /** Position joueur dans le monde apres (optionnel, annulation inter-monde). */
+    private final Position positionJoueurMondeApres;
+
     /**
      * Construit un mouvement simple (sans poussée).
      */
     public Mouvement(Direction direction, Position positionDepart,
                      Position positionArrivee, boolean personnageSurCibleAvant) {
         this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
-             false, null, null, false, null);
+               false, null, null, false, null,
+               null, null, null, null, null, null);
     }
 
     /**
@@ -49,7 +70,8 @@ public class Mouvement {
                      boolean aPousseeBoite, Position positionBoiteAvant,
                      Position positionBoiteApres, boolean boiteSurCibleAvant) {
         this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
-             aPousseeBoite, positionBoiteAvant, positionBoiteApres, boiteSurCibleAvant, null);
+               aPousseeBoite, positionBoiteAvant, positionBoiteApres, boiteSurCibleAvant, null,
+               null, null, null, null, null, null);
     }
 
     /**
@@ -60,6 +82,24 @@ public class Mouvement {
                      boolean aPousseeBoite, Position positionBoiteAvant,
                      Position positionBoiteApres, boolean boiteSurCibleAvant,
                      CaseBoite caseBoitePoussee) {
+        this(direction, positionDepart, positionArrivee, personnageSurCibleAvant,
+             aPousseeBoite, positionBoiteAvant, positionBoiteApres, boiteSurCibleAvant,
+             caseBoitePoussee, null, null, null, null, null, null);
+    }
+
+    /**
+     * Constructeur complet, compatible mouvements locaux + transitions recursives.
+     */
+    public Mouvement(Direction direction, Position positionDepart,
+                     Position positionArrivee, boolean personnageSurCibleAvant,
+                     boolean aPousseeBoite, Position positionBoiteAvant,
+                     Position positionBoiteApres, boolean boiteSurCibleAvant,
+                     CaseBoite caseBoitePoussee,
+                     Character mondeAvant, Character mondeApres,
+                     ArrayList<Multivers.ContexteNavigation> pileAvantSnapshot,
+                     ArrayList<Multivers.ContexteNavigation> pileApresSnapshot,
+                     Position positionJoueurMondeAvant,
+                     Position positionJoueurMondeApres) {
         if (direction == null) {
             throw new IllegalArgumentException("La direction ne peut pas etre nulle");
         }
@@ -72,6 +112,43 @@ public class Mouvement {
         this.positionBoiteApres = positionBoiteApres;
         this.boiteSurCibleAvant = boiteSurCibleAvant;
         this.caseBoitePoussee = caseBoitePoussee;
+        this.mondeAvant = mondeAvant;
+        this.mondeApres = mondeApres;
+        this.pileAvantSnapshot = (pileAvantSnapshot == null) ? null : new ArrayList<>(pileAvantSnapshot);
+        this.pileApresSnapshot = (pileApresSnapshot == null) ? null : new ArrayList<>(pileApresSnapshot);
+        this.positionJoueurMondeAvant = positionJoueurMondeAvant;
+        this.positionJoueurMondeApres = positionJoueurMondeApres;
+    }
+
+    /**
+     * Fabrique un mouvement de transition recursive (entre/sortie de monde).
+     */
+    public static Mouvement transitionRecursive(
+        Direction direction,
+        Character mondeAvant,
+        Character mondeApres,
+        ArrayList<Multivers.ContexteNavigation> pileAvantSnapshot,
+        ArrayList<Multivers.ContexteNavigation> pileApresSnapshot,
+        Position positionJoueurMondeAvant,
+        Position positionJoueurMondeApres
+    ) {
+        return new Mouvement(
+            direction,
+            null,
+            null,
+            false,
+            false,
+            null,
+            null,
+            false,
+            null,
+            mondeAvant,
+            mondeApres,
+            pileAvantSnapshot,
+            pileApresSnapshot,
+            positionJoueurMondeAvant,
+            positionJoueurMondeApres
+        );
     }
 
     /**
@@ -115,6 +192,35 @@ public class Mouvement {
 
     public CaseBoite getCaseBoitePoussee() {
         return caseBoitePoussee;
+    }
+
+    public Character getMondeAvant() {
+        return mondeAvant;
+    }
+
+    public Character getMondeApres() {
+        return mondeApres;
+    }
+
+    public ArrayList<Multivers.ContexteNavigation> getPileAvantSnapshot() {
+        return pileAvantSnapshot == null ? null : new ArrayList<>(pileAvantSnapshot);
+    }
+
+    public ArrayList<Multivers.ContexteNavigation> getPileApresSnapshot() {
+        return pileApresSnapshot == null ? null : new ArrayList<>(pileApresSnapshot);
+    }
+
+    public Position getPositionJoueurMondeAvant() {
+        return positionJoueurMondeAvant;
+    }
+
+    public Position getPositionJoueurMondeApres() {
+        return positionJoueurMondeApres;
+    }
+
+    public boolean estTransitionRecursive() {
+        return mondeAvant != null && mondeApres != null
+            && pileAvantSnapshot != null && pileApresSnapshot != null;
     }
 
     /**

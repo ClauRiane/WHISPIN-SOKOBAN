@@ -179,7 +179,7 @@ public class Plateau {
             setCase(posApresBoite, nouvelleBoite);
 
             // Le personnage prend la place de la boîte
-            setCase(prochainePos, new Personnage(prochaineCase.estCible()));
+            setCase(prochainePos, new Personnage(boiteEtaitSurCible));
 
             // Restaurer la case d'origine du personnage
             setCase(positionPersonnage, personnageEtaitSurCible

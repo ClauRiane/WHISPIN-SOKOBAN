@@ -89,34 +89,50 @@ public final class GestionEntreeJeu {
                                          long maintenantNs) {
         Plateau courant = multivers.getPlateauCourant();
 
+        boolean derniereActionInterMonde =
+            multivers.getDernierResultatDeplacement() == Multivers.ResultatDeplacement.ENTRE
+            || multivers.getDernierResultatDeplacement() == Multivers.ResultatDeplacement.SORTI;
+
+        if (derniereActionInterMonde && multivers.annulerDerniereTransitionContexte()) {
+            controleurAnimation.notifierAnnulation(multivers.estGagne(), maintenantNs);
+            return;
+        }
+
         if (!courant.getHistorique().isEmpty()) {
             // Il reste des mouvements à annuler dans ce monde
             courant.annulerDernierMouvement();
             controleurAnimation.notifierAnnulation(multivers.estGagne(), maintenantNs);
+        } else if (multivers.annulerDerniereTransitionContexte()) {
+            // Annulation d'une entree/sortie de monde via snapshot de contexte
+            controleurAnimation.notifierAnnulation(multivers.estGagne(), maintenantNs);
         } else if (multivers.peutSortir()) {
-            // Historique vide dans un sous-monde → on remonte dans le parent
-            // (équivaut à annuler l'entrée dans la boîte-monde)
-            Multivers.ContexteNavigation contexte = multivers.sortir();
-            Plateau parent = multivers.getPlateauCourant();
-
-            // Replacer le joueur là où il était dans le monde parent (sur la boîte)
-            Position posBoite = contexte.positionBoite;
-            if (parent.estDansLimites(posBoite)) {
-                Case caseBoite = parent.getCase(posBoite);
-                // La boîte-monde est encore là, on place le joueur juste avant
-                Direction dirRetour = contexte.directionEntree;
-                Position avantBoite = posBoite.deplacer(dirRetour.getOpposee());
-                if (parent.estDansLimites(avantBoite) && parent.getCase(avantBoite).estTraversable()) {
-                    parent.teleporterPersonnage(avantBoite);
-                } else {
-                    // Fallback : n'importe quelle case libre autour de la boîte
-                    Position libre = trouverCaseLibreAutour(parent, posBoite);
-                    if (libre != null) parent.teleporterPersonnage(libre);
-                }
-            }
+            // Fallback legacy si aucune transition snapshottee n'est disponible
+            annulerTransitionLegacy(multivers);
             controleurAnimation.notifierAnnulation(multivers.estGagne(), maintenantNs);
         }
         // Sinon : historique vide dans le monde racine → rien à faire
+    }
+
+    private static void annulerTransitionLegacy(Multivers multivers) {
+            // Historique vide dans un sous-monde → on remonte dans le parent
+            // (équivaut à annuler l'entrée dans la boîte-monde)
+        Multivers.ContexteNavigation contexte = multivers.sortir();
+        Plateau parent = multivers.getPlateauCourant();
+
+        // Replacer le joueur là où il était dans le monde parent (sur la boîte)
+        Position posBoite = contexte.positionBoite;
+        if (parent.estDansLimites(posBoite)) {
+            // La boîte-monde est encore là, on place le joueur juste avant
+            Direction dirRetour = contexte.directionEntree;
+            Position avantBoite = posBoite.deplacer(dirRetour.getOpposee());
+            if (parent.estDansLimites(avantBoite) && parent.getCase(avantBoite).estTraversable()) {
+                parent.teleporterPersonnage(avantBoite);
+            } else {
+                // Fallback : n'importe quelle case libre autour de la boîte
+                Position libre = trouverCaseLibreAutour(parent, posBoite);
+                if (libre != null) parent.teleporterPersonnage(libre);
+            }
+        }
     }
 
     /** Cherche la première case traversable autour d'une position donnée. */

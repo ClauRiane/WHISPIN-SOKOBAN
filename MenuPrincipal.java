@@ -491,8 +491,8 @@ public class MenuPrincipal {
         try {
             int index = controleurMenu.getIndexSelectionSauvegarde();
             Path chemin = sauvegardesDisponibles.get(index).getChemin();
-            Plateau plateauCharge = new Plateau(ServicePersistance.chargerPlateauDepuisFichierTexte(chemin));
-            actionJouer.lancer(scene, plateauCharge, null, null);
+            ServicePersistance.SauvegardeChargee sauvegarde = ServicePersistance.chargerSauvegarde(chemin);
+            actionJouer.lancer(scene, sauvegarde.getPlateau(), sauvegarde.getMultivers(), null);
         } catch (Exception e) {
             System.err.println("[Persistance] Impossible de charger la sauvegarde: " + e.getMessage());
         }

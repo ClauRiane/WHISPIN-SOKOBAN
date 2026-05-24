@@ -26,6 +26,13 @@ public final class ServicePersistance {
     private static final String CLE_PLATEAU = "plateau";
     private static final String CLE_CHEMIN = "chemin";
     private static final String CLE_MOUVEMENTS = "mouvements";
+    private static final String CLE_VERSION = "version";
+    private static final String CLE_TYPE = "type";
+    private static final String CLE_MONDES_TEXTE = "mondesTexte";
+    private static final String CLE_MONDE_COURANT = "mondeCourant";
+    private static final int VERSION_SAUVEGARDE_JSON = 1;
+    private static final String TYPE_SAUVEGARDE_PLATEAU = "plateau";
+    private static final String TYPE_SAUVEGARDE_MULTIVERS = "multivers";
 
     private ServicePersistance() {
     }
@@ -62,6 +69,24 @@ public final class ServicePersistance {
         }
     }
 
+    public static final class SauvegardeChargee {
+        private final Plateau plateau;
+        private final Multivers multivers;
+
+        public SauvegardeChargee(Plateau plateau, Multivers multivers) {
+            this.plateau = plateau;
+            this.multivers = multivers;
+        }
+
+        public Plateau getPlateau() {
+            return plateau;
+        }
+
+        public Multivers getMultivers() {
+            return multivers;
+        }
+    }
+
     public static Path getDossierSauvegardes() {
         return DOSSIER_SAUVEGARDES;
     }
@@ -71,7 +96,7 @@ public final class ServicePersistance {
     }
 
     public static Path creerCheminSauvegardeAuto() {
-        String nom = "auto_" + LocalDateTime.now().format(FORMAT_HORODATE) + ".txt";
+        String nom = "auto_" + LocalDateTime.now().format(FORMAT_HORODATE) + ".json";
         return DOSSIER_SAUVEGARDES.resolve(nom);
     }
 
@@ -83,7 +108,7 @@ public final class ServicePersistance {
         if (nomNettoye.isBlank()) {
             throw new IllegalArgumentException("Le nom de sauvegarde est invalide");
         }
-        return DOSSIER_SAUVEGARDES.resolve(nomNettoye + ".txt");
+        return DOSSIER_SAUVEGARDES.resolve(nomNettoye + ".json");
     }
 
     public static ArrayList<SauvegardeInfo> listerSauvegardesInfos() throws IOException {
@@ -94,7 +119,7 @@ public final class ServicePersistance {
         try (Stream<Path> flux = Files.list(DOSSIER_SAUVEGARDES)) {
             flux
                 .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".txt"))
+                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".json"))
                 .sorted(Comparator.comparing((Path p) -> {
                     try {
                         return Files.getLastModifiedTime(p);
@@ -205,6 +230,76 @@ public final class ServicePersistance {
             grilles.put(entree.getKey(), entree.getValue().getGrille());
         }
         PlateauTexteFichier.sauvegarderTousLesMondes(cheminFichier, grilles);
+    }
+
+    /**
+     * Sauvegarde la session courante en JSON.
+     * Le contenu plateau/multivers est stocke sous forme de lignes ASCII multi-monde.
+     */
+    public static void sauvegarderSessionJson(Path cheminFichier, Plateau plateau, Multivers multivers) throws IOException {
+        Map<Character, ArrayList<ArrayList<Case>>> mondes = new LinkedHashMap<>();
+        String type;
+        char mondeCourant;
+
+        if (multivers != null) {
+            for (Map.Entry<Character, Plateau> entree : multivers.getTousLesMondes().entrySet()) {
+                mondes.put(entree.getKey(), entree.getValue().getGrille());
+            }
+            type = TYPE_SAUVEGARDE_MULTIVERS;
+            mondeCourant = multivers.getMondeCourantId();
+        } else {
+            mondes.put('A', plateau.getGrille());
+            type = TYPE_SAUVEGARDE_PLATEAU;
+            mondeCourant = 'A';
+        }
+
+        Map<String, Object> donneesJson = new LinkedHashMap<>();
+        donneesJson.put(CLE_VERSION, VERSION_SAUVEGARDE_JSON);
+        donneesJson.put(CLE_TYPE, type);
+        donneesJson.put(CLE_MONDE_COURANT, String.valueOf(Character.toUpperCase(mondeCourant)));
+        donneesJson.put(CLE_MONDES_TEXTE, PlateauTexteFichier.convertirTousLesMondesVersLignes(mondes));
+
+        ecrireDansFichierJson(cheminFichier, donneesJson);
+    }
+
+    /**
+     * Charge une sauvegarde utilisateur.
+     * Format cible: JSON. Fallback legacy: texte multi-monde / simple monde.
+     */
+    public static SauvegardeChargee chargerSauvegarde(Path cheminFichier) throws IOException {
+        String nom = cheminFichier.getFileName().toString().toLowerCase();
+        if (nom.endsWith(".json")) {
+            return chargerSauvegardeJson(cheminFichier);
+        }
+
+        // Fallback legacy pour d'anciennes sauvegardes texte
+        if (estFichierMultiMonde(cheminFichier)) {
+            Multivers mv = chargerMultivers(cheminFichier);
+            return new SauvegardeChargee(mv.getPlateauCourant(), mv);
+        }
+
+        Plateau plateau = new Plateau(chargerPlateauDepuisFichierTexte(cheminFichier));
+        return new SauvegardeChargee(plateau, null);
+    }
+
+    private static SauvegardeChargee chargerSauvegardeJson(Path cheminFichier) throws IOException {
+        Map<String, Object> donneesJson = MAPPER.readValue(
+            Files.readString(cheminFichier),
+            new TypeReference<Map<String, Object>>() {
+            }
+        );
+
+        String type = lireChampTexte(donneesJson.get(CLE_TYPE), CLE_TYPE);
+        ArrayList<String> lignesMondes = lireChampListeTexte(donneesJson.get(CLE_MONDES_TEXTE), CLE_MONDES_TEXTE);
+        Map<Character, ArrayList<ArrayList<Case>>> mondes = PlateauTexteFichier.chargerTousLesMondesDepuisLignes(lignesMondes);
+
+        if (TYPE_SAUVEGARDE_MULTIVERS.equals(type)) {
+            Multivers multivers = Multivers.depuisGrilles(mondes);
+            return new SauvegardeChargee(multivers.getPlateauCourant(), multivers);
+        }
+
+        Plateau plateau = new Plateau(mondes.values().iterator().next());
+        return new SauvegardeChargee(plateau, null);
     }
 
     /**

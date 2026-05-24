@@ -49,6 +49,173 @@ public final class RenduPlateau {
         dessiner(canvas.getGraphicsContext2D(), plateau, multivers, controleurAnimation, feuArtifice, maintenantNs);
     }
 
+    public static void redessinerRecursif(
+        Canvas canvas,
+        double largeur,
+        double hauteur,
+        Plateau plateau,
+        Multivers multivers,
+        RecursiveSceneViewModel viewModel,
+        RecursiveTransitionController transition,
+        ControleurAnimation controleurAnimation,
+        FeuArtifice feuArtifice,
+        Image imageFond,
+        long maintenantNs
+    ) {
+        canvas.setWidth(Math.max(largeur, 1));
+        canvas.setHeight(Math.max(hauteur, 1));
+
+        if (multivers == null || viewModel == null) {
+            dessiner(canvas.getGraphicsContext2D(), plateau, null, controleurAnimation, feuArtifice, maintenantNs);
+            return;
+        }
+
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        double W = gc.getCanvas().getWidth();
+        double H = gc.getCanvas().getHeight();
+
+        gc.setFill(FOND_GENERAL);
+        gc.fillRect(0, 0, W, H);
+
+        double marge     = Math.min(W, H) * 0.06;
+        double cadreX    = marge;
+        double cadreY    = marge;
+        double cadreW    = W - marge * 2;
+        double cadreH    = H - marge * 2;
+        double coinCadre = Math.max(16, Math.min(cadreW, cadreH) * 0.06);
+
+        gc.setFill(Color.web("#000000", 0.18));
+        gc.fillRoundRect(cadreX + 4, cadreY + 6, cadreW, cadreH, coinCadre, coinCadre);
+
+        gc.setFill(CADRE_BLANC);
+        gc.fillRoundRect(cadreX, cadreY, cadreW, cadreH, coinCadre, coinCadre);
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(BORD_CADRE);
+        gc.strokeRoundRect(cadreX + BORD_CADRE / 2, cadreY + BORD_CADRE / 2,
+                           cadreW - BORD_CADRE, cadreH - BORD_CADRE, coinCadre, coinCadre);
+
+        double pad        = BORD_CADRE + 8;
+        double anneauX    = cadreX + pad;
+        double anneauY    = cadreY + pad;
+        double anneauW    = cadreW - pad * 2;
+        double anneauH    = cadreH - pad * 2;
+        double coinAnneau = Math.max(10, coinCadre * 0.7);
+
+        gc.setFill(ANNEAU_SOMBRE);
+        gc.fillRoundRect(anneauX, anneauY, anneauW, anneauH, coinAnneau, coinAnneau);
+
+        double champX    = anneauX + EPAISSEUR_ANNEAU;
+        double champY    = anneauY + EPAISSEUR_ANNEAU;
+        double champW    = anneauW - EPAISSEUR_ANNEAU * 2;
+        double champH    = anneauH - EPAISSEUR_ANNEAU * 2;
+        double coinChamp = Math.max(6, coinAnneau * 0.5);
+
+        gc.setFill(CHAMP_JEU);
+        gc.fillRoundRect(champX, champY, champW, champH, coinChamp, coinChamp);
+
+        List<RecursiveSceneViewModel.Layer> layers = viewModel.buildLayers(multivers, champW, champH);
+        if (layers.isEmpty()) {
+            int nLignes   = plateau.getGrille().size();
+            int nColonnes = plateau.getGrille().isEmpty() ? 1 : plateau.getGrille().get(0).size();
+            double tailleCase = Math.min(champW / nColonnes, champH / nLignes);
+            double origineX   = champX + (champW - nColonnes * tailleCase) / 2.0;
+            double origineY   = champY + (champH - nLignes * tailleCase) / 2.0;
+            dessinerGrille(gc, plateau, multivers, controleurAnimation, maintenantNs,
+                           nLignes, nColonnes, tailleCase, origineX, origineY);
+        } else {
+            gc.save();
+            gc.beginPath();
+            gc.rect(champX, champY, champW, champH);
+            gc.clip();
+
+            if (transition != null && transition.isActive()) {
+                Plateau mondeSource = multivers.getPlateau(transition.getFromWorld());
+                Plateau mondeCible = multivers.getPlateau(transition.getToWorld());
+                if (mondeSource == null) mondeSource = plateau;
+                if (mondeCible == null) mondeCible = plateau;
+
+                double p = clamp(0.0, 1.0, transition.getProgress());
+
+                if (transition.getType() == RecursiveTransitionController.TransitionType.ENTER) {
+                    dessinerLayerDansViewport(
+                        gc, mondeSource, multivers, controleurAnimation, maintenantNs,
+                        champX, champY, champW, champH,
+                        lerp(1.0, 0.94, p),
+                        lerp(0.0, -18.0, p),
+                        lerp(0.0, -12.0, p),
+                        lerp(1.0, 0.45, p)
+                    );
+                    dessinerLayerDansViewport(
+                        gc, mondeCible, multivers, controleurAnimation, maintenantNs,
+                        champX, champY, champW, champH,
+                        clamp(0.2, 4.0, 1.22 - (0.22 * p) * transition.getScaleLerp()),
+                        transition.getOffsetXLerp(),
+                        transition.getOffsetYLerp(),
+                        lerp(0.30, 1.0, p)
+                    );
+                } else {
+                    // EXIT
+                    dessinerLayerDansViewport(
+                        gc, mondeSource, multivers, controleurAnimation, maintenantNs,
+                        champX, champY, champW, champH,
+                        lerp(1.0, 1.10, p),
+                        lerp(0.0, 20.0, p),
+                        lerp(0.0, 14.0, p),
+                        lerp(1.0, 0.30, p)
+                    );
+                    dessinerLayerDansViewport(
+                        gc, mondeCible, multivers, controleurAnimation, maintenantNs,
+                        champX, champY, champW, champH,
+                        clamp(0.2, 4.0, 0.88 + (0.12 * p)),
+                        transition.getOffsetXLerp(),
+                        transition.getOffsetYLerp(),
+                        lerp(0.45, 1.0, p)
+                    );
+                }
+            } else {
+                // Hors transition: on dessine UNIQUEMENT le monde courant (pas de superposition).
+                RecursiveSceneViewModel.Layer layerCourant = layers.get(layers.size() - 1);
+                dessinerLayerDansViewport(
+                    gc, layerCourant.plateau, multivers, controleurAnimation, maintenantNs,
+                    champX, champY, champW, champH,
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0
+                );
+            }
+
+            gc.restore();
+        }
+
+        int surCibles   = plateau.compterBoitesSurCibles();
+        int totalCibles = plateau.compterCibles();
+        double tailleFont = Math.max(14, Math.min(cadreW, cadreH) * 0.042);
+        gc.setFill(Color.web("#333333"));
+        gc.setFont(Font.font("SansSerif", FontWeight.BOLD, tailleFont));
+        gc.setTextAlign(TextAlignment.CENTER);
+        double scoreY = cadreY + cadreH - (cadreH - anneauH) / 2.0 + tailleFont * 0.35;
+        gc.fillText(surCibles + " / " + totalCibles, cadreX + cadreW / 2.0, scoreY);
+        gc.setTextAlign(TextAlignment.LEFT);
+
+        if (multivers.getProfondeur() > 0) {
+            dessinerContexteNavigation(gc, W, H, multivers);
+        }
+
+        boolean gagne = multivers.estGagne();
+        if (gagne) {
+            gc.setFill(Color.web("#000000", 0.38));
+            gc.fillRoundRect(cadreX, cadreY, cadreW, cadreH * 0.14, coinCadre, coinCadre);
+            gc.setFill(Color.web("#f2d974"));
+            gc.setFont(Font.font("SansSerif", FontWeight.BOLD, Math.max(14, cadreW * 0.038)));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.fillText("Victoire !", cadreX + cadreW / 2.0, cadreY + cadreH * 0.10);
+            gc.setTextAlign(TextAlignment.LEFT);
+            feuArtifice.dessiner(gc, maintenantNs);
+        }
+    }
+
     private static void dessiner(
         GraphicsContext gc,
         Plateau plateau,
@@ -407,5 +574,53 @@ public final class RenduPlateau {
         gc.setStroke(couleur.brighter());
         gc.setLineWidth(bord);
         gc.strokeRoundRect(x + h2, y + h2, taille - bord, taille - bord, coin, coin);
+    }
+
+    private static double clamp(double min, double max, double value) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
+
+    private static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
+    private static void dessinerLayerDansViewport(
+        GraphicsContext gc,
+        Plateau layerPlateau,
+        Multivers multivers,
+        ControleurAnimation controleurAnimation,
+        long maintenantNs,
+        double champX,
+        double champY,
+        double champW,
+        double champH,
+        double scale,
+        double offsetX,
+        double offsetY,
+        double alpha
+    ) {
+        if (layerPlateau == null) return;
+
+        double centreX = champX + champW / 2.0;
+        double centreY = champY + champH / 2.0;
+
+        gc.save();
+        gc.setGlobalAlpha(clamp(0.0, 1.0, alpha));
+        gc.translate(centreX + offsetX, centreY + offsetY);
+        gc.scale(clamp(0.2, 4.0, scale), clamp(0.2, 4.0, scale));
+        gc.translate(-centreX, -centreY);
+
+        int nLignes = layerPlateau.getGrille().size();
+        int nColonnes = layerPlateau.getGrille().isEmpty() ? 1 : layerPlateau.getGrille().get(0).size();
+        double tailleCase = Math.min(champW / nColonnes, champH / nLignes);
+        double origineX = champX + (champW - nColonnes * tailleCase) / 2.0;
+        double origineY = champY + (champH - nLignes * tailleCase) / 2.0;
+
+        dessinerGrille(gc, layerPlateau, multivers, controleurAnimation, maintenantNs,
+                       nLignes, nColonnes, tailleCase, origineX, origineY);
+
+        gc.restore();
     }
 }

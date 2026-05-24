@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,6 +26,14 @@ public final class PlateauTexteFichier {
      */
     public static Map<Character, ArrayList<ArrayList<Case>>> chargerTousLesMondes(Path cheminFichier) throws IOException {
         ArrayList<String> toutesLignes = new ArrayList<>(Files.readAllLines(cheminFichier, StandardCharsets.UTF_8));
+        return chargerTousLesMondesDepuisLignes(toutesLignes);
+    }
+
+    /**
+     * Charge tous les mondes depuis des lignes deja en memoire.
+     */
+    public static Map<Character, ArrayList<ArrayList<Case>>> chargerTousLesMondesDepuisLignes(List<String> lignesSource) {
+        ArrayList<String> toutesLignes = new ArrayList<>(lignesSource);
         Map<Character, ArrayList<ArrayList<Case>>> mondes = new LinkedHashMap<>();
 
         int i = 0;
@@ -70,6 +79,23 @@ public final class PlateauTexteFichier {
             throw new IllegalArgumentException("Aucun monde trouvé dans le fichier.");
         }
         return mondes;
+    }
+
+    /**
+     * Convertit tous les mondes vers des lignes ASCII multi-monde (entetes incluses).
+     */
+    public static ArrayList<String> convertirTousLesMondesVersLignes(
+        Map<Character, ArrayList<ArrayList<Case>>> mondes
+    ) {
+        ArrayList<String> toutesLignes = new ArrayList<>();
+        for (Map.Entry<Character, ArrayList<ArrayList<Case>>> entree : mondes.entrySet()) {
+            char lettre = Character.toUpperCase(entree.getKey());
+            ArrayList<ArrayList<Case>> grille = entree.getValue();
+            validerGrilleCarree(grille);
+            toutesLignes.add(lettre + " " + grille.size());
+            toutesLignes.addAll(convertirGrilleVersLignes(grille));
+        }
+        return toutesLignes;
     }
 
     /**
@@ -201,14 +227,7 @@ public final class PlateauTexteFichier {
         Path cheminFichier,
         Map<Character, ArrayList<ArrayList<Case>>> mondes
     ) throws IOException {
-        ArrayList<String> toutesLignes = new ArrayList<>();
-        for (Map.Entry<Character, ArrayList<ArrayList<Case>>> entree : mondes.entrySet()) {
-            char lettre = Character.toUpperCase(entree.getKey());
-            ArrayList<ArrayList<Case>> grille = entree.getValue();
-            validerGrilleCarree(grille);
-            toutesLignes.add(lettre + " " + grille.size());
-            toutesLignes.addAll(convertirGrilleVersLignes(grille));
-        }
+        ArrayList<String> toutesLignes = convertirTousLesMondesVersLignes(mondes);
         if (cheminFichier.getParent() != null) {
             Files.createDirectories(cheminFichier.getParent());
         }

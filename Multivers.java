@@ -1,9 +1,11 @@
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Contient l'ensemble des mondes du Sokoban récursif et l'état de navigation du joueur.
@@ -26,6 +28,19 @@ import java.util.Map;
  * </pre>
  */
 public class Multivers {
+
+    /**
+     * Vue légère d'un monde pour les couches de rendu.
+     */
+    public static final class MondeView {
+        public final char id;
+        public final Plateau plateau;
+
+        public MondeView(char id, Plateau plateau) {
+            this.id = id;
+            this.plateau = plateau;
+        }
+    }
 
     /**
      * Contexte sauvegardé à chaque entrée dans une boîte-monde.
@@ -72,6 +87,12 @@ public class Multivers {
     /** Pile de contextes pour pouvoir revenir dans le monde parent. */
     private final Deque<ContexteNavigation> pileContextes;
 
+    /** Historique des transitions de contexte (entree/sortie) pour Ctrl+Z inter-monde. */
+    private final ArrayList<Mouvement> historiqueTransitions;
+
+    /** Dernier resultat de deplacement observe dans le multivers. */
+    private ResultatDeplacement dernierResultatDeplacement;
+
     /** Lettre du monde racine (le tout premier, jamais changée). */
     private final char mondeRacine;
 
@@ -83,6 +104,8 @@ public class Multivers {
         this.mondeCourant = mondes.keySet().iterator().next();
         this.mondeRacine  = this.mondeCourant;
         this.pileContextes = new ArrayDeque<>();
+        this.historiqueTransitions = new ArrayList<>();
+        this.dernierResultatDeplacement = ResultatDeplacement.BLOQUE;
     }
 
     /**
@@ -103,9 +126,20 @@ public class Multivers {
 
     public char getMondeCourant() { return mondeCourant; }
 
+    /** Alias explicite pour la couche de rendu. */
+    public char getMondeCourantId() { return mondeCourant; }
+
     public Plateau getPlateauCourant() { return mondes.get(mondeCourant); }
 
+    /** Alias explicite pour la couche de rendu. */
+    public Plateau getMondeCourantPlateau() { return getPlateauCourant(); }
+
     public Plateau getPlateau(char lettre) { return mondes.get(Character.toUpperCase(lettre)); }
+
+    /** Retourne un monde optionnel (lecture pure, sans exception). */
+    public Optional<Plateau> getMonde(char lettre) {
+        return Optional.ofNullable(getPlateau(lettre));
+    }
 
     public boolean existeMonde(char lettre) {
         return mondes.containsKey(Character.toUpperCase(lettre));
@@ -171,7 +205,9 @@ public class Multivers {
 
         // Hors-limites → sortir
         if (!plateau.estDansLimites(prochainePos)) {
-            return tenterSortie(direction);
+            ResultatDeplacement resultat = tenterSortie(direction);
+            dernierResultatDeplacement = resultat;
+            return resultat;
         }
 
         Case prochaineCase = plateau.getCase(prochainePos);
@@ -186,7 +222,9 @@ public class Multivers {
             // On ne peut entrer que si on ne peut pas pousser la boîte normalement
             // (i.e. la case derrière la boîte n'est pas libre ou c'est un mur de fond)
             if (!plateau.peutSeDeplacer(direction)) {
-                return tenterEntree(bm, prochainePos, direction);
+                ResultatDeplacement resultat = tenterEntree(bm, prochainePos, direction);
+                dernierResultatDeplacement = resultat;
+                return resultat;
             }
             // Sinon, la boîte-monde est poussable normalement
         }
@@ -196,12 +234,16 @@ public class Multivers {
                 && !(prochaineCase instanceof CaseBoiteMonde)
                 && !plateau.peutSeDeplacer(direction)
                 && pousseVersExterieur(plateau, prochainePos, direction)) {
-            return tenterSortieAvecBoite(prochainePos, direction);
+            ResultatDeplacement resultat = tenterSortieAvecBoite(prochainePos, direction);
+            dernierResultatDeplacement = resultat;
+            return resultat;
         }
 
         // Déplacement classique
         boolean deplace = plateau.deplacer(direction);
-        return deplace ? ResultatDeplacement.DEPLACE : ResultatDeplacement.BLOQUE;
+        ResultatDeplacement resultat = deplace ? ResultatDeplacement.DEPLACE : ResultatDeplacement.BLOQUE;
+        dernierResultatDeplacement = resultat;
+        return resultat;
     }
 
     /** Vérifie si la boîte à la position donnée est contre un mur de bordure. */
@@ -220,6 +262,10 @@ public class Multivers {
      * empile le contexte et téléporte le joueur côté opposé dans le monde enfant.
      */
     private ResultatDeplacement tenterEntree(CaseBoiteMonde boite, Position posBoite, Direction direction) {
+        char mondeAvant = mondeCourant;
+        ArrayList<ContexteNavigation> pileAvant = copierContextes(getContextesOrdonnes());
+        Position joueurAvant = getPlateauCourant().getPositionPersonnage();
+
         char identifiant = boite.getIdentifiantMonde();
         if (!existeMonde(identifiant)) {
             // La boîte-monde pointe sur un monde inexistant → bloqué
@@ -237,6 +283,16 @@ public class Multivers {
         Position entree = nouveauPlateau.positionEntreeDepuis(direction);
         nouveauPlateau.teleporterPersonnage(entree);
 
+        enregistrerTransitionRecursive(
+            direction,
+            mondeAvant,
+            mondeCourant,
+            pileAvant,
+            copierContextes(getContextesOrdonnes()),
+            joueurAvant,
+            entree
+        );
+
         return ResultatDeplacement.ENTRE;
     }
 
@@ -248,6 +304,10 @@ public class Multivers {
         if (!peutSortir()) {
             return ResultatDeplacement.BLOQUE;
         }
+
+        char mondeAvant = mondeCourant;
+        ArrayList<ContexteNavigation> pileAvant = copierContextes(getContextesOrdonnes());
+        Position joueurAvant = getPlateauCourant().getPositionPersonnage();
 
         ContexteNavigation contexte = sortir();
         Plateau plateauParent = getPlateauCourant();
@@ -271,6 +331,17 @@ public class Multivers {
         }
 
         plateauParent.teleporterPersonnage(sortie);
+
+        enregistrerTransitionRecursive(
+            directionSortie,
+            mondeAvant,
+            mondeCourant,
+            pileAvant,
+            copierContextes(getContextesOrdonnes()),
+            joueurAvant,
+            sortie
+        );
+
         return ResultatDeplacement.SORTI;
     }
 
@@ -301,6 +372,10 @@ public class Multivers {
         if (!peutSortir()) {
             return ResultatDeplacement.BLOQUE;
         }
+
+        char mondeAvant = mondeCourant;
+        ArrayList<ContexteNavigation> pileAvant = copierContextes(getContextesOrdonnes());
+        Position joueurAvant = getPlateauCourant().getPositionPersonnage();
 
         Plateau plateauEnfant = getPlateauCourant();
         Case caseBoite = plateauEnfant.getCase(posBoite);
@@ -339,6 +414,17 @@ public class Multivers {
         if (sortiJoueur == null) return ResultatDeplacement.BLOQUE;
 
         plateauParent.teleporterPersonnage(sortiJoueur);
+
+        enregistrerTransitionRecursive(
+            direction,
+            mondeAvant,
+            mondeCourant,
+            pileAvant,
+            copierContextes(getContextesOrdonnes()),
+            joueurAvant,
+            sortiJoueur
+        );
+
         return ResultatDeplacement.SORTI;
     }
 
@@ -418,8 +504,13 @@ public class Multivers {
      */
     public List<ContexteNavigation> getContextesOrdonnes() {
         List<ContexteNavigation> liste = new ArrayList<>(pileContextes);
-        java.util.Collections.reverse(liste);
+        Collections.reverse(liste);
         return liste;
+    }
+
+    /** Alias explicite pour les consommateurs externes (rendu/persistance/tests). */
+    public List<ContexteNavigation> getPileContextesSnapshot() {
+        return new ArrayList<>(getContextesOrdonnes());
     }
 
     /**
@@ -441,9 +532,80 @@ public class Multivers {
         return !pileContextes.isEmpty();
     }
 
+    /**
+     * Annule la derniere transition de contexte (entree/sortie de monde).
+     */
+    public boolean annulerDerniereTransitionContexte() {
+        if (historiqueTransitions.isEmpty()) {
+            return false;
+        }
+
+        Mouvement transition = historiqueTransitions.remove(historiqueTransitions.size() - 1);
+        if (!transition.estTransitionRecursive()) {
+            return false;
+        }
+
+        Character mondeCible = transition.getMondeAvant();
+        ArrayList<ContexteNavigation> pileCible = transition.getPileAvantSnapshot();
+        if (mondeCible == null || pileCible == null) {
+            return false;
+        }
+
+        appliquerEtatNavigation(mondeCible, pileCible);
+
+        Position posJoueur = transition.getPositionJoueurMondeAvant();
+        Plateau plateau = getPlateauCourant();
+        if (posJoueur != null && plateau.estDansLimites(posJoueur)
+                && !(plateau.getCase(posJoueur) instanceof CaseMur)) {
+            plateau.teleporterPersonnage(posJoueur);
+        }
+
+        dernierResultatDeplacement = ResultatDeplacement.BLOQUE;
+
+        return true;
+    }
+
+    public ResultatDeplacement getDernierResultatDeplacement() {
+        return dernierResultatDeplacement;
+    }
+
     /** Profondeur de navigation (0 = monde racine). */
     public int getProfondeur() {
         return pileContextes.size();
+    }
+
+    /** Alias explicite pour la couche de rendu. */
+    public int getProfondeurCourante() {
+        return getProfondeur();
+    }
+
+    /**
+     * Retourne la chaîne visible racine -> monde courant.
+     * Cette méthode est dédiée à la présentation (rendu) et ne modifie aucun état.
+     */
+    public List<MondeView> getCheminVisible() {
+        List<Character> ids = new ArrayList<>();
+        ids.add(mondeRacine);
+
+        for (ContexteNavigation contexte : getContextesOrdonnes()) {
+            char parent = contexte.mondePrecedent;
+            if (ids.isEmpty() || ids.get(ids.size() - 1) != parent) {
+                ids.add(parent);
+            }
+        }
+
+        if (ids.isEmpty() || ids.get(ids.size() - 1) != mondeCourant) {
+            ids.add(mondeCourant);
+        }
+
+        List<MondeView> vues = new ArrayList<>(ids.size());
+        for (char id : ids) {
+            Plateau plateau = mondes.get(id);
+            if (plateau != null) {
+                vues.add(new MondeView(id, plateau));
+            }
+        }
+        return vues;
     }
 
     /**
@@ -452,8 +614,74 @@ public class Multivers {
      */
     public void reinitialiserNavigation() {
         pileContextes.clear();
+        historiqueTransitions.clear();
+        dernierResultatDeplacement = ResultatDeplacement.BLOQUE;
         // On revient toujours au monde racine original, pas juste au parent du dernier contexte.
         mondeCourant = mondeRacine;
+    }
+
+    private void enregistrerTransitionRecursive(
+        Direction direction,
+        char mondeAvant,
+        char mondeApres,
+        ArrayList<ContexteNavigation> pileAvant,
+        ArrayList<ContexteNavigation> pileApres,
+        Position joueurAvant,
+        Position joueurApres
+    ) {
+        historiqueTransitions.add(Mouvement.transitionRecursive(
+            direction,
+            mondeAvant,
+            mondeApres,
+            pileAvant,
+            pileApres,
+            joueurAvant,
+            joueurApres
+        ));
+    }
+
+    private void appliquerEtatNavigation(char monde, List<ContexteNavigation> contextesOrdonnes) {
+        pileContextes.clear();
+
+        if (contextesOrdonnes != null) {
+            // contextesOrdonnes est fourni dans l'ordre racine -> parent immediat.
+            // La pile interne, elle, doit avoir le parent immediat en tete (comme push/pop).
+            for (ContexteNavigation c : contextesOrdonnes) {
+                if (c != null) {
+                    pileContextes.push(copieContexte(c));
+                }
+            }
+        }
+
+        mondeCourant = Character.toUpperCase(monde);
+    }
+
+    private static ArrayList<ContexteNavigation> copierContextes(List<ContexteNavigation> source) {
+        ArrayList<ContexteNavigation> copie = new ArrayList<>();
+        if (source == null) {
+            return copie;
+        }
+        for (ContexteNavigation c : source) {
+            if (c != null) {
+                copie.add(copieContexte(c));
+            }
+        }
+        return copie;
+    }
+
+    private static ContexteNavigation copieContexte(ContexteNavigation c) {
+        Position positionBoite = c.positionBoite == null
+            ? null
+            : new Position(c.positionBoite.getx(), c.positionBoite.gety());
+        Position positionSortie = c.positionSortie == null
+            ? null
+            : new Position(c.positionSortie.getx(), c.positionSortie.gety());
+        return new ContexteNavigation(
+            c.mondePrecedent,
+            positionBoite,
+            positionSortie,
+            c.directionEntree
+        );
     }
 
     @Override

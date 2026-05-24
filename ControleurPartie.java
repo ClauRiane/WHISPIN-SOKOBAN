@@ -34,6 +34,8 @@ public class ControleurPartie {
     private final Plateau plateau;
     private final Supplier<NiveauSuivant> niveauSuivantFournisseur;
     private final ControleurAnimation controleurAnimation;
+    private final RecursiveSceneViewModel recursiveSceneViewModel;
+    private final RecursiveTransitionController recursiveTransitionController;
     private final FeuArtifice feuArtifice;
     private final Canvas canvas;
     private final Scene scene;
@@ -53,6 +55,8 @@ public class ControleurPartie {
         this.plateau                  = plateau;
         this.niveauSuivantFournisseur = niveauSuivant;
         this.controleurAnimation      = new ControleurAnimation();
+        this.recursiveSceneViewModel  = new RecursiveSceneViewModel();
+        this.recursiveTransitionController = new RecursiveTransitionController();
         this.feuArtifice              = new FeuArtifice();
         this.canvas                   = new Canvas(900, 700);
 
@@ -101,6 +105,7 @@ public class ControleurPartie {
 
                 controleurAnimation.initialiserSiNecessaire(maintenantNs);
                 controleurAnimation.mettreAJour(gagne, maintenantNs);
+                recursiveTransitionController.update(maintenantNs);
 
                 // Sauvegarde automatique une seule fois à la victoire
                 if (gagne && !sauvegardeAutoEffectuee) {
@@ -158,7 +163,17 @@ public class ControleurPartie {
 
         // Déléguer au gestionnaire d'entrées
         if (multivers != null) {
+            int profondeurAvant = multivers.getProfondeurCourante();
+            char mondeAvant = multivers.getMondeCourantId();
             GestionEntreeJeu.gererTouche(evenement, multivers, controleurAnimation, maintenantNs);
+
+            int profondeurApres = multivers.getProfondeurCourante();
+            char mondeApres = multivers.getMondeCourantId();
+            if (profondeurApres > profondeurAvant || (profondeurApres == profondeurAvant && mondeApres != mondeAvant)) {
+                recursiveTransitionController.startEnter(mondeAvant, mondeApres, maintenantNs);
+            } else if (profondeurApres < profondeurAvant) {
+                recursiveTransitionController.startExit(mondeAvant, mondeApres, maintenantNs);
+            }
         } else {
             GestionEntreeJeu.gererTouche(evenement, plateau, controleurAnimation, maintenantNs);
         }
@@ -172,9 +187,34 @@ public class ControleurPartie {
 
     private void redessiner(long maintenantNs) {
         Plateau aAfficher = (multivers != null) ? multivers.getPlateauCourant() : plateau;
-        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(),
-                                 aAfficher, multivers, controleurAnimation,
-                                 feuArtifice, imageFond, maintenantNs);
+        if (multivers != null) {
+            RenduPlateau.redessinerRecursif(
+                canvas,
+                scene.getWidth(),
+                scene.getHeight(),
+                aAfficher,
+                multivers,
+                recursiveSceneViewModel,
+                recursiveTransitionController,
+                controleurAnimation,
+                feuArtifice,
+                imageFond,
+                maintenantNs
+            );
+            return;
+        }
+
+        RenduPlateau.redessiner(
+            canvas,
+            scene.getWidth(),
+            scene.getHeight(),
+            aAfficher,
+            multivers,
+            controleurAnimation,
+            feuArtifice,
+            imageFond,
+            maintenantNs
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -206,11 +246,7 @@ public class ControleurPartie {
 
     private void sauvegarderVersChemin(Path chemin, String libelle) {
         try {
-            if (multivers != null) {
-                ServicePersistance.sauvegarderMultivers(chemin, multivers);
-            } else {
-                ServicePersistance.sauvegarderPlateauDansFichierTexte(chemin, plateau.getGrille(), 'A');
-            }
+            ServicePersistance.sauvegarderSessionJson(chemin, plateau, multivers);
             System.out.println("[Persistance] " + libelle + " : " + chemin);
         } catch (Exception e) {
             System.err.println("[Persistance] Échec " + libelle + " : " + e.getMessage());
