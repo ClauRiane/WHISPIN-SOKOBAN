@@ -128,3 +128,10 @@ WHISPIN-SOKOBAN/
 
 - L'affichage Docker nécessite un serveur X11 actif sur la machine hôte.
 - Sur certaines distributions, le chemin JavaFX doit être spécifié manuellement via `JAVAFX_LIB`.
+
+## Si vous avez Java 17+ et JavaFX 11 via apt
+
+Téléchargez JavaFX 21 manuellement :
+wget https://download2.gluonhq.com/openjfx/21.0.2/openjfx-21.0.2_linux-x64_bin-sdk.zip
+unzip openjfx-21.0.2_linux-x64_bin-sdk.zip ~/
+make run JAVAFX_LIB=~/javafx-sdk-21.0.2/lib
