@@ -82,9 +82,9 @@ public class InterfacePrincipale extends Application {
         menuPrincipal = Menu.creerConteneurMenu();
         Text titre = Menu.creerTitre("WHISPIN");
         Button btnNiveau = Menu.creerBoutonMenu("Niveau");
-        Button btnRegles = Menu.creerBoutonMenu("Regles du jeu");
+        Button btnRegles = Menu.creerBoutonMenu("Règles du jeu");
         Button btnSauvegarde = Menu.creerBoutonMenu("Sauvegarde");
-        Button btnParamettre = Menu.creerBoutonMenu("Paramettre");
+        Button btnParamettre = Menu.creerBoutonMenu("Paramètres");
         Button btnQuitter = Menu.creerBoutonMenu("Quitter");
 
         boutonsMenuPrincipal = List.of(
