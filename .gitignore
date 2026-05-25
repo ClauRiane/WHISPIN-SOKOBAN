@@ -11,3 +11,4 @@ effacer_apres
 
 # Sauvegardes
 sauvegardes/
+.env
