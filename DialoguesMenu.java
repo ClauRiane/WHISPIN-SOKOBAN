@@ -117,20 +117,6 @@ public final class DialoguesMenu {
     }
 
     /**
-     * Affiche la boîte de dialogue des paramètres (placeholder).
-     */
-    public static void afficherParametres() {
-        afficherInfo(
-            "Paramettre",
-            "Zone parametres prete.\n\n"
-                + "Tu pourras y ajouter ensuite :\n"
-                + "- Volume\n"
-                + "- Taille de fenetre\n"
-                + "- Raccourcis clavier"
-        );
-    }
-
-    /**
      * Affiche un message d'information simple.
      *
      * @param titre titre de la boîte

@@ -46,6 +46,7 @@ public class InterfacePrincipale extends Application {
     private long debutAnimationVictoireNs;
     private boolean transitionVictoireEnCours;
     private Runnable actionFinVictoire;
+    private ControleurPartie controleurPartie;
 
     /**
      * Initialise et affiche l'interface principale.
@@ -75,7 +76,7 @@ public class InterfacePrincipale extends Application {
         }
 
         canvasPlateau = new Canvas(560, 560);
-        canvasPlateau.setMouseTransparent(true);
+        canvasPlateau.setMouseTransparent(false);
         racinePrincipale.getChildren().add(canvasPlateau);
 
         menuPrincipal = Menu.creerConteneurMenu();
@@ -109,7 +110,7 @@ public class InterfacePrincipale extends Application {
         btnNiveau.setOnAction(event -> chargerNiveauSelectionne());
         btnRegles.setOnAction(event -> DialoguesMenu.afficherReglesDuJeu());
         btnSauvegarde.setOnAction(event -> gererSauvegarde());
-        btnParamettre.setOnAction(event -> DialoguesMenu.afficherParametres());
+        btnParamettre.setOnAction(event -> gererParametres());
         btnQuitter.setOnAction(event -> {
             sauvegarderEtatCourantAutomatiqueSiPossible();
             Platform.exit();
@@ -151,6 +152,10 @@ public class InterfacePrincipale extends Application {
             if (transitionVictoireEnCours) {
                 event.consume();
                 return;
+            }
+
+            if (controleurPartie != null) {
+                controleurPartie.arreterDeplacementAutomatique();
             }
 
             if (event.getCode() == KeyCode.ESCAPE && modeJeuActif) {
@@ -207,6 +212,24 @@ public class InterfacePrincipale extends Application {
         canvasPlateau.heightProperty().bind(scenePrincipale.heightProperty().multiply(0.80));
         canvasPlateau.widthProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
         canvasPlateau.heightProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
+        controleurPartie = new ControleurPartie(
+            canvasPlateau,
+            () -> modeJeuActif,
+            () -> transitionVictoireEnCours,
+            () -> plateauActuel,
+            () -> moteurJeu,
+            () -> {
+                if (moteurJeu != null) {
+                    plateauActuel = moteurJeu.exporterPlateau();
+                }
+                dessinerPlateauActuel();
+            },
+            () -> {
+                sauvegarderEtatCourantAutomatiqueSiPossible();
+                lancerAnimationVictoire(this::afficherSceneVictoire);
+            }
+        );
+        controleurPartie.installerGestionClic();
         dessinerPlateauActuel();
 
         if (backgroundView != null) {
@@ -291,6 +314,7 @@ public class InterfacePrincipale extends Application {
             nomNiveauActuel,
             this::chargerNiveauParNom,
             () -> {
+                activerPleinEcranEtFocus();
                 if (!modeJeuActif) {
                     focusBoutonMenuPrincipal(indexBoutonMenuPrincipal);
                 } else if (racinePrincipale != null) {
@@ -307,6 +331,9 @@ public class InterfacePrincipale extends Application {
 
         if (modeJeuActif) {
             sauvegarderEtatCourantAutomatiqueSiPossible();
+        }
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
         }
 
         ChargeurNiveau.NiveauCharge niveauCharge = ChargeurNiveau.chargerNiveauRecursifDepuisFichier("niveau/" + niveau);
@@ -335,6 +362,9 @@ public class InterfacePrincipale extends Application {
 
     private void quitterPartieEnCours() {
         sauvegarderEtatCourantAutomatiqueSiPossible();
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
+        }
         arreterAnimationVictoire();
         transitionVictoireEnCours = false;
         if (stagePrincipal != null && scenePrincipale != null && stagePrincipal.getScene() != scenePrincipale) {
@@ -442,6 +472,51 @@ public class InterfacePrincipale extends Application {
         }
     }
 
+    private void gererParametres() {
+        List<String> personnages = Animation.getPersonnagesDisponibles();
+        if (personnages.isEmpty()) {
+            DialoguesMenu.afficherInformation("Paramettre", "Aucun personnage trouve dans assets/player.");
+            return;
+        }
+
+        ouvrirSceneChoixPersonnage(personnages);
+    }
+
+    private void ouvrirSceneChoixPersonnage(List<String> personnages) {
+        if (stagePrincipal == null || scenePrincipale == null) {
+            return;
+        }
+
+        Runnable retourScenePrincipale = () -> {
+            stagePrincipal.setScene(scenePrincipale);
+            activerPleinEcranEtFocus();
+            if (!modeJeuActif) {
+                focusBoutonMenuPrincipal(indexBoutonMenuPrincipal);
+            } else if (racinePrincipale != null) {
+                racinePrincipale.requestFocus();
+            }
+        };
+
+        Scene sceneChoix = SceneChoixPersonnage.creer(
+            scenePrincipale.getWidth(),
+            scenePrincipale.getHeight(),
+            personnages,
+            Animation.getPersonnageActuel(),
+            choisi -> {
+                if (!Animation.selectionnerPersonnage(choisi)) {
+                    DialoguesMenu.afficherInformation("Paramettre", "Impossible de charger le personnage choisi.");
+                    return;
+                }
+                dessinerPlateauActuel();
+                retourScenePrincipale.run();
+            },
+            retourScenePrincipale
+        );
+
+        stagePrincipal.setScene(sceneChoix);
+        activerPleinEcranEtFocus();
+    }
+
     private void sauvegarderEtatCourant() {
         try {
             Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
@@ -485,6 +560,9 @@ public class InterfacePrincipale extends Application {
     }
 
     private void chargerSauvegarde() {
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
+        }
         Path chemin = DialoguesMenu.ouvrirDialogueChargementSauvegarde();
         if (chemin == null) {
             return;
@@ -520,6 +598,10 @@ public class InterfacePrincipale extends Application {
     private void lancerAnimationVictoire(Runnable actionApresAnimation) {
         if (victoireAnimee) {
             return;
+        }
+
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
         }
 
         transitionVictoireEnCours = true;
