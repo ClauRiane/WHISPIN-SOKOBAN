@@ -1,286 +1,261 @@
-import javafx.animation.AnimationTimer;
-import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.control.TextInputDialog;
-import javafx.scene.image.Image;
-import javafx.scene.input.KeyCode;
-import javafx.scene.layout.StackPane;
-import javafx.scene.paint.Color;
-import javafx.stage.Stage;
-
-import java.nio.file.Path;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.Queue;
 import java.util.function.Supplier;
 
+import javafx.animation.AnimationTimer;
+import javafx.scene.canvas.Canvas;
+
 /**
- * Contrôleur principal d'une partie en cours.
- * Il gère la boucle d'animation, les entrées clavier et le retour au menu après victoire.
+ * Controle le deplacement automatique du personnage apres clic sur une case.
  */
-public class ControleurPartie {
-    private static final Color FOND = Color.web("#ece8dc");
-
-    public record NiveauSuivant(Plateau plateau, Supplier<NiveauSuivant> apres) {}
-    private final Stage stage;
-    private final Scene sceneMenu;
-    private final Plateau plateau;
-    private final ControleurAnimation controleurAnimation;
-    private final FeuArtifice feuArtifice;
-    private final Canvas canvas;
-    private final Scene scene;
-    private final AnimationTimer timer;
-    private final Image imageFond;
-    private final Supplier<NiveauSuivant> niveauSuivantFournisseur;
-    private boolean retourMenuDemande;
-    private boolean sauvegardeAutoEffectuee;
-
-    // ── Déplacement automatique par clic souris (A*) ──────────────────────
-    /** File des directions à exécuter automatiquement. */
-    private final Queue<Direction> cheminAutomate = new ArrayDeque<>();
-    /** Instant (ns) du dernier pas automatique exécuté. */
-    private long dernierPasAutomateNs = 0;
-    /** Délai entre deux pas automatiques : 120 ms. */
+public final class ControleurPartie {
     private static final long DELAI_PAS_NS = 120_000_000L;
 
-    public ControleurPartie(Stage stage, Scene sceneMenu, Plateau plateau, Supplier<NiveauSuivant> niveauSuivant) {
-        this.stage = stage;
-        this.sceneMenu = sceneMenu;
-        this.plateau = plateau;
-        this.niveauSuivantFournisseur = niveauSuivant;
-        this.controleurAnimation = new ControleurAnimation();
-        this.feuArtifice = new FeuArtifice();
-        this.canvas = new Canvas(900, 700);
+    private final Canvas canvas;
+    private final Supplier<Boolean> modeJeuActif;
+    private final Supplier<Boolean> transitionVictoire;
+    private final Supplier<Case[][]> plateauSupplier;
+    private final Supplier<LogiqueSokoban> moteurSupplier;
+    private final Runnable rafraichirAffichage;
+    private final Runnable onVictoire;
+    private final AAsterix asterix;
 
-        Image img = null;
-        try {
-            var url = ControleurPartie.class.getResource("/fond_principale_ecran-frame0.png");
-            if (url != null) img = new Image(url.toExternalForm());
-        } catch (Exception ignored) {}
-        this.imageFond = img;
+    private final ArrayDeque<Direction> cheminAutomatique;
+    private AnimationTimer animationDeplacementAutomatique;
+    private long dernierPasAutomatiqueNs;
 
-        StackPane racine = new StackPane(canvas);
-        racine.setStyle("-fx-background-color: #1a2b26;");
-        this.scene = new Scene(racine, 900, 700);
-        this.scene.setFill(FOND);
-        this.timer = creerBouclePrincipale();
-
-        configurerScene();
+    public ControleurPartie(
+        Canvas canvas,
+        Supplier<Boolean> modeJeuActif,
+        Supplier<Boolean> transitionVictoire,
+        Supplier<Case[][]> plateauSupplier,
+        Supplier<LogiqueSokoban> moteurSupplier,
+        Runnable rafraichirAffichage,
+        Runnable onVictoire
+    ) {
+        this.canvas = canvas;
+        this.modeJeuActif = modeJeuActif;
+        this.transitionVictoire = transitionVictoire;
+        this.plateauSupplier = plateauSupplier;
+        this.moteurSupplier = moteurSupplier;
+        this.rafraichirAffichage = rafraichirAffichage;
+        this.onVictoire = onVictoire;
+        this.asterix = new AAsterix();
+        this.cheminAutomatique = new ArrayDeque<>();
+        this.dernierPasAutomatiqueNs = 0L;
     }
 
-    public Scene getScene() {
-        return scene;
+    public void installerGestionClic() {
+        if (canvas != null) {
+            canvas.setOnMouseClicked(event -> gererClicPlateau(event.getX(), event.getY()));
+        }
     }
 
-    public void demarrer() {
-        timer.start();
-        canvas.requestFocus();
+    public void arreterDeplacementAutomatique() {
+        cheminAutomatique.clear();
+        dernierPasAutomatiqueNs = 0L;
+        if (animationDeplacementAutomatique != null) {
+            animationDeplacementAutomatique.stop();
+        }
     }
 
-    private AnimationTimer creerBouclePrincipale() {
-        return new AnimationTimer() {
-            @Override
-            public void handle(long maintenantNs) {
-                controleurAnimation.initialiserSiNecessaire(maintenantNs);
-                controleurAnimation.mettreAJour(plateau.estGagne(), maintenantNs);
+    private void gererClicPlateau(double pixelX, double pixelY) {
+        if (!Boolean.TRUE.equals(modeJeuActif.get()) || Boolean.TRUE.equals(transitionVictoire.get())) {
+            return;
+        }
 
-                // ── Avancer d'un pas dans le chemin automatique (clic souris) ──
-                if (!cheminAutomate.isEmpty() && !plateau.estGagne()) {
-                    if (maintenantNs - dernierPasAutomateNs >= DELAI_PAS_NS) {
-                        Direction dir = cheminAutomate.poll();
-                        boolean vaPousser = plateau.vaPousserBoite(dir);
-                        boolean ok = plateau.deplacer(dir);
-                        if (ok) {
-                            controleurAnimation.notifierDeplacementReussi(
-                                dir, vaPousser, plateau.estGagne(), maintenantNs);
-                        } else {
-                            // Obstacle inattendu (boîte déplacée entre-temps, etc.)
-                            cheminAutomate.clear();
+        Case[][] plateau = plateauSupplier.get();
+        LogiqueSokoban moteur = moteurSupplier.get();
+        if (plateau == null || moteur == null) {
+            return;
+        }
+
+        int[] caseCliquee = convertirPixelVersCase(pixelX, pixelY, plateau);
+        if (caseCliquee == null) {
+            return;
+        }
+
+        int cibleX = caseCliquee[0];
+        int cibleY = caseCliquee[1];
+        Case caseCible = plateau[cibleY][cibleX];
+        if (caseCible == null) {
+            return;
+        }
+
+        boolean caseAccessible = caseCible.estTraversable()
+            || caseCible.estPersonnageCible()
+            || caseCible instanceof CasePersonnage;
+        if (!caseAccessible) {
+            return;
+        }
+
+        int[] positionJoueur = localiserJoueurPlateau(plateau);
+        if (positionJoueur == null) {
+            return;
+        }
+
+        if (positionJoueur[0] == cibleX && positionJoueur[1] == cibleY) {
+            return;
+        }
+
+        List<Direction> chemin = trouverCheminVersCase(plateau, positionJoueur[0], positionJoueur[1], cibleX, cibleY);
+        if (chemin == null || chemin.isEmpty()) {
+            return;
+        }
+
+        arreterDeplacementAutomatique();
+        cheminAutomatique.addAll(chemin);
+        demarrerDeplacementAutomatique();
+    }
+
+    private int[] convertirPixelVersCase(double pixelX, double pixelY, Case[][] plateau) {
+        if (plateau.length == 0 || plateau[0] == null || plateau[0].length == 0) {
+            return null;
+        }
+
+        int lignes = plateau.length;
+        int colonnes = plateau[0].length;
+        double largeur = canvas.getWidth();
+        double hauteur = canvas.getHeight();
+
+        double tailleCase = Math.min(largeur / colonnes, hauteur / lignes);
+        double origineX = (largeur - colonnes * tailleCase) / 2.0;
+        double origineY = (hauteur - lignes * tailleCase) / 2.0;
+
+        if (pixelX < origineX || pixelY < origineY) {
+            return null;
+        }
+
+        int x = (int) ((pixelX - origineX) / tailleCase);
+        int y = (int) ((pixelY - origineY) / tailleCase);
+        if (x < 0 || y < 0 || y >= lignes || x >= colonnes) {
+            return null;
+        }
+        return new int[] {x, y};
+    }
+
+    private int[] localiserJoueurPlateau(Case[][] plateau) {
+        for (int y = 0; y < plateau.length; y++) {
+            if (plateau[y] == null) {
+                continue;
+            }
+            for (int x = 0; x < plateau[y].length; x++) {
+                Case caseJeu = plateau[y][x];
+                if (caseJeu == null) {
+                    continue;
+                }
+                char symbole = caseJeu.getSymbole();
+                if (symbole == '@' || symbole == '+') {
+                    return new int[] {x, y};
+                }
+            }
+        }
+        return null;
+    }
+
+    private List<Direction> trouverCheminVersCase(Case[][] plateau, int departX, int departY, int cibleX, int cibleY) {
+        int rows = plateau.length;
+        int cols = plateau[0].length;
+        int[][] grid = new int[rows][cols];
+
+        for (int y = 0; y < rows; y++) {
+            for (int x = 0; x < cols; x++) {
+                Case c = plateau[y][x];
+                boolean traversable = c != null && (c.estTraversable() || c.estPersonnageCible() || c instanceof CasePersonnage);
+                grid[y][x] = traversable ? 1 : 0;
+            }
+        }
+
+        Pair src = new Pair(departY, departX);
+        Pair dest = new Pair(cibleY, cibleX);
+        List<Pair> path = asterix.aStarSearch(grid, rows, cols, src, dest);
+        if (path == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        ArrayDeque<Direction> directions = new ArrayDeque<>();
+        int currentY = departY;
+        int currentX = departX;
+        for (Pair next : path) {
+            int ny = next.getFirst();
+            int nx = next.getSecond();
+            directions.add(directionEntre(currentX, currentY, nx, ny));
+            currentX = nx;
+            currentY = ny;
+        }
+
+        return new java.util.ArrayList<>(directions);
+    }
+
+    private static Direction directionEntre(int x0, int y0, int x1, int y1) {
+        int dx = x1 - x0;
+        int dy = y1 - y0;
+        if (dx == 1 && dy == 0) {
+            return Direction.DROITE;
+        }
+        if (dx == -1 && dy == 0) {
+            return Direction.GAUCHE;
+        }
+        if (dx == 0 && dy == 1) {
+            return Direction.BAS;
+        }
+        if (dx == 0 && dy == -1) {
+            return Direction.HAUT;
+        }
+        throw new IllegalArgumentException("Direction invalide pour le chemin automatique.");
+    }
+
+    private void demarrerDeplacementAutomatique() {
+        if (cheminAutomatique.isEmpty()) {
+            return;
+        }
+
+        if (animationDeplacementAutomatique == null) {
+            animationDeplacementAutomatique = new AnimationTimer() {
+                @Override
+                public void handle(long maintenantNs) {
+                    if (Boolean.TRUE.equals(transitionVictoire.get())
+                        || !Boolean.TRUE.equals(modeJeuActif.get())
+                        || moteurSupplier.get() == null
+                        || cheminAutomatique.isEmpty()) {
+                        arreterDeplacementAutomatique();
+                        return;
+                    }
+
+                    if (dernierPasAutomatiqueNs != 0L && (maintenantNs - dernierPasAutomatiqueNs) < DELAI_PAS_NS) {
+                        return;
+                    }
+
+                    Direction direction = cheminAutomatique.poll();
+                    if (direction == null) {
+                        arreterDeplacementAutomatique();
+                        return;
+                    }
+
+                    LogiqueSokoban moteur = moteurSupplier.get();
+                    Animation.orienterPersonnage(direction);
+                    if (moteur.deplacer(direction)) {
+                        Animation.avancerAnimationPersonnage(direction);
+                        rafraichirAffichage.run();
+                        if (moteur.estVictoire()) {
+                            arreterDeplacementAutomatique();
+                            onVictoire.run();
+                            return;
                         }
-                        dernierPasAutomateNs = maintenantNs;
+                    } else {
+                        arreterDeplacementAutomatique();
+                        return;
+                    }
+
+                    dernierPasAutomatiqueNs = maintenantNs;
+                    if (cheminAutomatique.isEmpty()) {
+                        arreterDeplacementAutomatique();
                     }
                 }
-
-                if (plateau.estGagne() && !sauvegardeAutoEffectuee) {
-                    sauvegarderPartieAutomatique();
-                    sauvegardeAutoEffectuee = true;
-                }
-
-                feuArtifice.mettreAJour(plateau.estGagne(), scene.getWidth(), scene.getHeight(), maintenantNs);
-                if (plateau.estGagne() && feuArtifice.doitFermer(maintenantNs) && !retourMenuDemande) {
-                    stop();
-                    passerAuNiveauSuivantOuMenu();
-                    return;
-                }
-
-                redessiner(maintenantNs);
-            }
-        };
-    }
-
-    private void configurerScene() {
-        scene.widthProperty().addListener((obs, oldVal, newVal) -> redessiner(System.nanoTime()));
-        scene.heightProperty().addListener((obs, oldVal, newVal) -> redessiner(System.nanoTime()));
-        scene.setOnKeyPressed(evenementTouche -> gererTouche(evenementTouche, System.nanoTime()));
-
-        canvas.setFocusTraversable(true);
-        canvas.setOnMouseClicked(e -> gererClic(e.getX(), e.getY(), System.nanoTime()));
-        redessiner(System.nanoTime());
-    }
-
-    private void gererTouche(javafx.scene.input.KeyEvent evenementTouche, long maintenantNs) {
-        // Une touche clavier annule tout déplacement automatique en cours
-        cheminAutomate.clear();
-
-        if (evenementTouche.isControlDown() && evenementTouche.getCode() == KeyCode.S) {
-            sauvegarderPartieNommee();
-            redessiner(maintenantNs);
-            return;
+            };
         }
 
-        if (evenementTouche.getCode() == KeyCode.ESCAPE) {
-            sauvegarderAvantRetour();
-            retournerAuMenu();
-            return;
-        }
-
-        if (plateau.estGagne()) {
-            return;
-        }
-
-        GestionEntreeJeu.gererTouche(evenementTouche, plateau, controleurAnimation, maintenantNs);
-        redessiner(maintenantNs);
-    }
-
-    /**
-     * Gère un clic souris sur le canvas.
-     *
-     * Calcule la case cliquée, lance A* depuis la position du personnage
-     * jusqu'à cette case (en évitant murs et boîtes), puis enfile les
-     * directions dans {@code cheminAutomate} pour exécution progressive.
-     */
-    private void gererClic(double mouseX, double mouseY, long maintenantNs) {
-        if (plateau.estGagne()) return;
-
-        // 1. Convertir le clic en coordonnées de case (col=x, row=y)
-        int[] caseCliquee = RenduPlateau.pixelVersCase(
-            mouseX, mouseY,
-            scene.getWidth(), scene.getHeight(),
-            plateau.getHauteur(), plateau.getLargeur()
-        );
-        if (caseCliquee == null) return;
-
-        int colCible = caseCliquee[0]; // axe X
-        int rowCible = caseCliquee[1]; // axe Y
-
-        // 2. Vérifier que la case cible est traversable (pas un mur ni une boîte)
-        Case caseCible = plateau.getCase(colCible, rowCible);
-        if (!caseCible.estTraversable() && !caseCible.estPersonnageCible()) return;
-
-        // 3. Construire la grille int[][] pour A*
-        //    grid[row][col] : 1 = traversable, 0 = mur ou boîte
-        int rows = plateau.getHauteur();
-        int cols = plateau.getLargeur();
-        int[][] grid = new int[rows][cols];
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                Case cas = plateau.getCase(c, r);
-                // Traversable = cases vides, cibles, ou position du personnage
-                grid[r][c] = (cas.estTraversable() || cas.estPersonnageCible()) ? 1 : 0;
-            }
-        }
-
-        // 4. Lancer A*
-        Position posPerso = plateau.getPositionPersonnage();
-        Pair src  = new Pair(posPerso.gety(), posPerso.getx()); // Pair(row, col)
-        Pair dest = new Pair(rowCible, colCible);
-
-        AAsterix astar = new AAsterix();
-        List<Pair> chemin = astar.aStarSearch(grid, rows, cols, src, dest);
-
-        if (chemin == null || chemin.isEmpty()) return;
-
-        // 5. Convertir la liste de positions en liste de directions
-        cheminAutomate.clear();
-        Pair courant = src;
-        for (Pair suivant : chemin) {
-            int dr = suivant.getFirst()  - courant.getFirst();
-            int dc = suivant.getSecond() - courant.getSecond();
-            Direction dir;
-            if      (dr == -1) dir = Direction.HAUT;
-            else if (dr ==  1) dir = Direction.BAS;
-            else if (dc == -1) dir = Direction.GAUCHE;
-            else               dir = Direction.DROITE;
-            cheminAutomate.add(dir);
-            courant = suivant;
-        }
-
-        // Déclencher le premier pas immédiatement
-        dernierPasAutomateNs = maintenantNs - DELAI_PAS_NS;
-        canvas.requestFocus();
-    }
-
-    private void redessiner(long maintenantNs) {
-        RenduPlateau.redessiner(canvas, scene.getWidth(), scene.getHeight(), plateau, controleurAnimation, feuArtifice, imageFond, maintenantNs);
-    }
-
-    private void sauvegarderPartieAutomatique() {
-        Path cheminAuto = ServicePersistance.creerCheminSauvegardeAuto();
-        sauvegarderVersChemin(cheminAuto, "Auto-sauvegarde de fin de partie", "auto-sauvegarde");
-    }
-
-    private void sauvegarderPartieNommee() {
-        TextInputDialog dialogue = new TextInputDialog("partie_1");
-        dialogue.setTitle("Sauvegarde");
-        dialogue.setHeaderText("Nommer la sauvegarde");
-        dialogue.setContentText("Nom:");
-
-        Optional<String> resultat = dialogue.showAndWait();
-        if (resultat.isEmpty()) {
-            return;
-        }
-
-        Path cheminNomme = ServicePersistance.creerCheminSauvegardeNommee(resultat.get());
-        sauvegarderVersChemin(cheminNomme, "Sauvegarde nommee", "sauvegarde nommee");
-    }
-
-    private void sauvegarderVersChemin(Path chemin, String libelleSucces, String libelleErreur) {
-        try {
-            ServicePersistance.sauvegarderPlateauDansFichierTexte(chemin, plateau.getGrille(), 'A');
-            System.out.println("[Persistance] " + libelleSucces + ": " + chemin);
-        } catch (Exception e) {
-            System.err.println("[Persistance] Echec " + libelleErreur + ": " + e.getMessage());
-        }
-    }
-
-    private void sauvegarderAvantRetour() {
-        Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
-        sauvegarderVersChemin(chemin, "Sauvegarde avant retour menu", "sauvegarde avant retour");
-    }
-
-    private void passerAuNiveauSuivantOuMenu() {
-        retourMenuDemande = true;
-        timer.stop();
-        if (niveauSuivantFournisseur != null) {
-            NiveauSuivant ns = niveauSuivantFournisseur.get();
-            if (ns != null) {
-                stage.setScene(DeuxiemeScene.creerScene(stage, sceneMenu, ns.plateau(), ns.apres()));
-                return;
-            }
-        }
-        stage.setScene(sceneMenu);
-        sceneMenu.getRoot().requestFocus();
-    }
-
-    private void retournerAuMenu() {
-        if (retourMenuDemande) {
-            return;
-        }
-        retourMenuDemande = true;
-        timer.stop();
-        stage.setScene(sceneMenu);
-        sceneMenu.getRoot().requestFocus();
+        dernierPasAutomatiqueNs = 0L;
+        animationDeplacementAutomatique.start();
     }
 }
