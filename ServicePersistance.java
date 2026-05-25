@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,22 +15,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+/**
+ * Gère la persistance des sauvegardes et des niveaux.
+ */
 public final class ServicePersistance {
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Path DOSSIER_NIVEAUX = Path.of("niveau");
     private static final Path DOSSIER_SAUVEGARDES = Path.of("sauvegardes");
     private static final DateTimeFormatter FORMAT_HORODATE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter FORMAT_AFFICHAGE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    private static final String CLE_VERSION = "version";
+    private static final String CLE_TYPE = "type";
     private static final String CLE_NIVEAU = "niveau";
-    private static final String CLE_COUPS = "coups";
     private static final String CLE_HORODATAGE = "horodatage";
     private static final String CLE_PLATEAU = "plateau";
-    private static final String CLE_CHEMIN = "chemin";
-    private static final String CLE_MOUVEMENTS = "mouvements";
+
+    private static final int VERSION_SAUVEGARDE_JSON = 1;
+    private static final String TYPE_SAUVEGARDE_PLATEAU = "plateau";
 
     private ServicePersistance() {
     }
 
+    /**
+     * Métadonnées d'une sauvegarde.
+     */
     public static final class SauvegardeInfo {
         private final Path chemin;
         private final long tailleOctets;
@@ -62,39 +71,69 @@ public final class ServicePersistance {
         }
     }
 
-    public static Path getDossierSauvegardes() {
-        return DOSSIER_SAUVEGARDES;
+    /**
+     * Contenu chargé depuis une sauvegarde JSON.
+     */
+    public static final class SauvegardeChargee {
+        private final String niveau;
+        private final Case[][] plateau;
+
+        public SauvegardeChargee(String niveau, Case[][] plateau) {
+            this.niveau = niveau;
+            this.plateau = plateau;
+        }
+
+        public String getNiveau() {
+            return niveau;
+        }
+
+        public Case[][] getPlateau() {
+            return plateau;
+        }
     }
 
-    public static Path getDossierNiveaux() {
-        return DOSSIER_NIVEAUX;
-    }
-
+    /**
+     * Crée un chemin de sauvegarde automatique horodaté.
+     */
     public static Path creerCheminSauvegardeAuto() {
-        String nom = "auto_" + LocalDateTime.now().format(FORMAT_HORODATE) + ".txt";
+        String nom = "auto_" + LocalDateTime.now().format(FORMAT_HORODATE) + ".json";
         return DOSSIER_SAUVEGARDES.resolve(nom);
     }
 
-    public static Path creerCheminSauvegardeNommee(String nomUtilisateur) {
-        if (nomUtilisateur == null || nomUtilisateur.isBlank()) {
-            throw new IllegalArgumentException("Le nom de sauvegarde est vide");
+    /**
+     * Crée un chemin de sauvegarde personnalisé (nom nettoyé + extension .json).
+     */
+    public static Path creerCheminSauvegardePersonnalisee(String nomSouhaite) {
+        String nomBase = nomSouhaite == null ? "" : nomSouhaite.trim();
+        if (nomBase.isEmpty()) {
+            nomBase = "manual_" + LocalDateTime.now().format(FORMAT_HORODATE);
         }
-        String nomNettoye = nomUtilisateur.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
-        if (nomNettoye.isBlank()) {
-            throw new IllegalArgumentException("Le nom de sauvegarde est invalide");
+
+        nomBase = nomBase.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (nomBase.isEmpty()) {
+            nomBase = "manual_" + LocalDateTime.now().format(FORMAT_HORODATE);
         }
-        return DOSSIER_SAUVEGARDES.resolve(nomNettoye + ".txt");
+
+        if (!nomBase.toLowerCase().endsWith(".json")) {
+            nomBase = nomBase + ".json";
+        }
+
+        return DOSSIER_SAUVEGARDES.resolve(nomBase);
     }
 
+    /**
+     * Liste les sauvegardes JSON triées de la plus récente à la plus ancienne.
+     */
     public static ArrayList<SauvegardeInfo> listerSauvegardesInfos() throws IOException {
         if (!Files.exists(DOSSIER_SAUVEGARDES)) {
             return new ArrayList<>();
         }
+
         ArrayList<SauvegardeInfo> sauvegardes = new ArrayList<>();
         try (Stream<Path> flux = Files.list(DOSSIER_SAUVEGARDES)) {
             flux
                 .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".txt"))
+                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".json"))
                 .sorted(Comparator.comparing((Path p) -> {
                     try {
                         return Files.getLastModifiedTime(p);
@@ -106,107 +145,43 @@ public final class ServicePersistance {
                     try {
                         long taille = Files.size(p);
                         FileTime derniereModif = Files.getLastModifiedTime(p);
-                        LocalDateTime date = LocalDateTime.ofInstant(derniereModif.toInstant(), java.time.ZoneId.systemDefault());
+                        LocalDateTime date = LocalDateTime.ofInstant(derniereModif.toInstant(), ZoneId.systemDefault());
                         sauvegardes.add(new SauvegardeInfo(p, taille, date));
                     } catch (IOException e) {
-                        // Ignore un fichier illisible pour ne pas bloquer toute la liste.
+                        // Ignore les entrées illisibles pour ne pas bloquer toute la liste.
                     }
                 });
         }
         return sauvegardes;
     }
 
-    public static ArrayList<Path> listerNiveauxTexte() throws IOException {
-        if (!Files.exists(DOSSIER_NIVEAUX)) {
-            return new ArrayList<>();
-        }
-
-        ArrayList<Path> niveaux = new ArrayList<>();
-        try (Stream<Path> flux = Files.list(DOSSIER_NIVEAUX)) {
-            flux
-                .filter(Files::isRegularFile)
-                .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".txt"))
-                .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()))
-                .forEach(niveaux::add);
-        }
-        return niveaux;
-    }
-
-    public static boolean supprimerSauvegarde(Path cheminFichier) throws IOException {
-        if (cheminFichier == null) {
-            return false;
-        }
-        if (!cheminFichier.normalize().startsWith(DOSSIER_SAUVEGARDES.normalize())) {
-            throw new IllegalArgumentException("Suppression interdite hors dossier sauvegardes");
-        }
-        return Files.deleteIfExists(cheminFichier);
-    }
-
     /**
-     * Sauvegarde une grille Sokoban dans un fichier texte.
+     * Sauvegarde un plateau en JSON.
      *
-     * @param chemin chemin du fichier cible
-     * @param grille grille à sauvegarder
+     * @param cheminFichier fichier cible
+     * @param nomNiveau nom du niveau courant
+     * @param plateau plateau courant
      * @throws IOException en cas d'erreur d'écriture
      */
-    public static void sauvegarderPlateauDansFichierTexte(Path cheminFichier, ArrayList<ArrayList<Case>> grillePlateau) throws IOException {
-        PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau);
-    }
-
-    /**
-     * Sauvegarde une grille Sokoban dans un fichier texte avec en-tete "lettre taille".
-     *
-     * @param cheminFichier chemin du fichier cible
-     * @param grillePlateau grille a sauvegarder
-     * @param lettreNiveau identifiant de niveau (ex: A, B, C)
-     * @throws IOException en cas d'erreur d'ecriture
-     */
-    public static void sauvegarderPlateauDansFichierTexte(
-        Path cheminFichier,
-        ArrayList<ArrayList<Case>> grillePlateau,
-        char lettreNiveau
-    ) throws IOException {
-        PlateauTexteFichier.sauvegarderDansFichierTexte(cheminFichier, grillePlateau, lettreNiveau);
-    }
-
-    /**
-     * Charge une grille Sokoban depuis un fichier texte.
-     *
-     * @param chemin chemin du fichier source
-     * @return la grille chargée
-     * @throws IOException en cas d'erreur de lecture
-     */
-    public static ArrayList<ArrayList<Case>> chargerPlateauDepuisFichierTexte(Path cheminFichier) throws IOException {
-        return PlateauTexteFichier.chargerDepuisFichierTexte(cheminFichier);
-    }
-
-    /**
-     * Sauvegarde l'état complet d'une partie dans un fichier JSON.
-     *
-     * @param chemin chemin du fichier cible
-     * @param etat état de partie à sauvegarder
-     * @throws IOException en cas d'erreur d'écriture
-     */
-    public static void sauvegarderPartieDansFichierJson(Path cheminFichier, EtatPartie etatPartie) throws IOException {
+    public static void sauvegarderSessionJson(Path cheminFichier, String nomNiveau, Case[][] plateau) throws IOException {
         Map<String, Object> donneesJson = new LinkedHashMap<>();
-        donneesJson.put(CLE_NIVEAU, etatPartie.getNiveau());
-        donneesJson.put(CLE_COUPS, etatPartie.getCoups());
-        donneesJson.put(CLE_HORODATAGE, etatPartie.getHorodatage());
-        donneesJson.put(CLE_PLATEAU, new ArrayList<>(etatPartie.getPlateau()));
-
-        donneesJson.put(CLE_CHEMIN, convertirMouvementsEnCodes(etatPartie.getChemin()));
+        donneesJson.put(CLE_VERSION, VERSION_SAUVEGARDE_JSON);
+        donneesJson.put(CLE_TYPE, TYPE_SAUVEGARDE_PLATEAU);
+        donneesJson.put(CLE_NIVEAU, nomNiveau == null ? "inconnu" : nomNiveau);
+        donneesJson.put(CLE_HORODATAGE, System.currentTimeMillis());
+        donneesJson.put(CLE_PLATEAU, convertirPlateauVersLignes(plateau));
 
         ecrireDansFichierJson(cheminFichier, donneesJson);
     }
 
     /**
-     * Charge l'état complet d'une partie depuis un fichier JSON.
+     * Charge une sauvegarde JSON.
      *
-     * @param chemin chemin du fichier source
-     * @return état de partie reconstruit
+     * @param cheminFichier fichier source
+     * @return contenu chargé
      * @throws IOException en cas d'erreur de lecture
      */
-    public static EtatPartie chargerPartieDepuisFichierJson(Path cheminFichier) throws IOException {
+    public static SauvegardeChargee chargerSauvegardeJson(Path cheminFichier) throws IOException {
         Map<String, Object> donneesJson = MAPPER.readValue(
             Files.readString(cheminFichier),
             new TypeReference<Map<String, Object>>() {
@@ -214,63 +189,9 @@ public final class ServicePersistance {
         );
 
         String niveau = lireChampTexte(donneesJson.get(CLE_NIVEAU), CLE_NIVEAU);
-        int coups = lireChampEntier(donneesJson.get(CLE_COUPS), CLE_COUPS);
-        long horodatage = lireChampLong(donneesJson.get(CLE_HORODATAGE), CLE_HORODATAGE);
-
-        ArrayList<String> lignesPlateau = lireChampListeTexte(donneesJson.get(CLE_PLATEAU), CLE_PLATEAU);
-        ArrayList<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_CHEMIN), CLE_CHEMIN);
-        ArrayList<Mouvement> mouvementsChemin = new ArrayList<>();
-        for (String codeMouvement : codesMouvements) {
-            if (codeMouvement.length() != 1) {
-                throw new IllegalArgumentException("Code mouvement invalide: " + codeMouvement);
-            }
-            mouvementsChemin.add(Mouvement.depuisCode(codeMouvement.charAt(0)));
-        }
-
-        return new EtatPartie(niveau, coups, horodatage, lignesPlateau, mouvementsChemin);
-    }
-
-    /**
-     * Sauvegarde une liste de mouvements dans un fichier JSON.
-     *
-     * @param chemin chemin du fichier cible
-     * @param mouvements mouvements à sauvegarder
-     * @throws IOException en cas d'erreur d'écriture
-     */
-    public static void sauvegarderCheminDansFichierJson(Path cheminFichier, ArrayList<Mouvement> listeMouvements) throws IOException {
-        Map<String, Object> donneesJson = new LinkedHashMap<>();
-
-        ArrayList<String> codesMouvements = new ArrayList<>();
-        for (Mouvement mouvement : listeMouvements) {
-            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
-        }
-        donneesJson.put(CLE_MOUVEMENTS, codesMouvements);
-        ecrireDansFichierJson(cheminFichier, donneesJson);
-    }
-
-    /**
-     * Charge une liste de mouvements depuis un fichier JSON.
-     *
-     * @param chemin chemin du fichier source
-     * @return liste des mouvements chargés
-     * @throws IOException en cas d'erreur de lecture
-     */
-    public static ArrayList<Mouvement> chargerCheminDepuisFichierJson(Path cheminFichier) throws IOException {
-        Map<String, Object> donneesJson = MAPPER.readValue(
-            Files.readString(cheminFichier),
-            new TypeReference<Map<String, Object>>() {
-            }
-        );
-        ArrayList<String> codesMouvements = lireChampListeTexte(donneesJson.get(CLE_MOUVEMENTS), CLE_MOUVEMENTS);
-
-        ArrayList<Mouvement> mouvementsCharges = new ArrayList<>();
-        for (String codeMouvement : codesMouvements) {
-            if (codeMouvement.length() != 1) {
-                throw new IllegalArgumentException("Code mouvement invalide: " + codeMouvement);
-            }
-            mouvementsCharges.add(Mouvement.depuisCode(codeMouvement.charAt(0)));
-        }
-        return mouvementsCharges;
+        ArrayList<String> lignes = lireChampListeTexte(donneesJson.get(CLE_PLATEAU), CLE_PLATEAU);
+        Case[][] plateau = convertirLignesVersPlateau(lignes);
+        return new SauvegardeChargee(niveau, plateau);
     }
 
     private static void ecrireDansFichierJson(Path cheminFichier, Map<String, Object> donneesJson) throws IOException {
@@ -285,20 +206,6 @@ public final class ServicePersistance {
             return texte;
         }
         throw new IllegalArgumentException("Champ JSON invalide (String attendu): " + nomChamp);
-    }
-
-    private static int lireChampEntier(Object valeurChamp, String nomChamp) {
-        if (valeurChamp instanceof Number nombre) {
-            return nombre.intValue();
-        }
-        throw new IllegalArgumentException("Champ JSON invalide (int attendu): " + nomChamp);
-    }
-
-    private static long lireChampLong(Object valeurChamp, String nomChamp) {
-        if (valeurChamp instanceof Number nombre) {
-            return nombre.longValue();
-        }
-        throw new IllegalArgumentException("Champ JSON invalide (long attendu): " + nomChamp);
     }
 
     private static ArrayList<String> lireChampListeTexte(Object valeurChamp, String nomChamp) {
@@ -316,11 +223,46 @@ public final class ServicePersistance {
         return resultat;
     }
 
-    private static List<String> convertirMouvementsEnCodes(List<Mouvement> mouvements) {
-        List<String> codesMouvements = new ArrayList<>();
-        for (Mouvement mouvement : mouvements) {
-            codesMouvements.add(String.valueOf(mouvement.obtenirCode()));
+    private static List<String> convertirPlateauVersLignes(Case[][] plateau) {
+        ArrayList<String> lignes = new ArrayList<>();
+        if (plateau == null) {
+            return lignes;
         }
-        return codesMouvements;
+
+        for (Case[] ligne : plateau) {
+            if (ligne == null) {
+                lignes.add("");
+                continue;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            for (Case caseJeu : ligne) {
+                sb.append(caseJeu == null ? ' ' : caseJeu.getSymbole());
+            }
+            lignes.add(sb.toString());
+        }
+        return lignes;
+    }
+
+    private static Case[][] convertirLignesVersPlateau(List<String> lignes) {
+        if (lignes == null || lignes.isEmpty()) {
+            return null;
+        }
+
+        int hauteur = lignes.size();
+        int largeur = 0;
+        for (String ligne : lignes) {
+            largeur = Math.max(largeur, ligne == null ? 0 : ligne.length());
+        }
+
+        Case[][] plateau = new Case[hauteur][largeur];
+        for (int y = 0; y < hauteur; y++) {
+            String ligne = lignes.get(y) == null ? "" : lignes.get(y);
+            for (int x = 0; x < largeur; x++) {
+                char c = x < ligne.length() ? ligne.charAt(x) : ' ';
+                plateau[y][x] = ConvertisseurCases.depuisSymbole(c, x, y);
+            }
+        }
+        return plateau;
     }
 }
