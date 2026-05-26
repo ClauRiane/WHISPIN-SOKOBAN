@@ -16,6 +16,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -65,9 +66,9 @@ public class InterfacePrincipale extends Application {
         transitionVictoireEnCours = false;
         actionFinVictoire = null;
 
-        plateauActuel = creerPlateauApercu();
-        nomNiveauActuel = "aperçu";
-        moteurJeu = new LogiqueSokoban(plateauActuel);
+        plateauActuel = null;
+        nomNiveauActuel = null;
+        moteurJeu = null;
         Animation.reinitialiserAnimationPersonnage();
 
         ImageView backgroundView = FondEcran.creerVueFond();
@@ -79,51 +80,7 @@ public class InterfacePrincipale extends Application {
         canvasPlateau.setMouseTransparent(false);
         racinePrincipale.getChildren().add(canvasPlateau);
 
-        menuPrincipal = Menu.creerConteneurMenu();
-        Text titre = Menu.creerTitre("WHISPIN");
-        Button btnNiveau = Menu.creerBoutonMenu("Niveau");
-        Button btnRegles = Menu.creerBoutonMenu("Règles du jeu");
-        Button btnSauvegarde = Menu.creerBoutonMenu("Sauvegarde");
-        Button btnParamettre = Menu.creerBoutonMenu("Paramètres");
-        Button btnQuitter = Menu.creerBoutonMenu("Quitter");
-
-        boutonsMenuPrincipal = List.of(
-            btnNiveau,
-            btnRegles,
-            btnSauvegarde,
-            btnParamettre,
-            btnQuitter
-        );
-        indexBoutonMenuPrincipal = 0;
-
-        for (int i = 0; i < boutonsMenuPrincipal.size(); i++) {
-            final int index = i;
-            Button bouton = boutonsMenuPrincipal.get(i);
-            bouton.setOnMouseEntered(event -> indexBoutonMenuPrincipal = index);
-            bouton.focusedProperty().addListener((obs, oldValue, isFocused) -> {
-                if (isFocused) {
-                    indexBoutonMenuPrincipal = index;
-                }
-            });
-        }
-
-        btnNiveau.setOnAction(event -> chargerNiveauSelectionne());
-        btnRegles.setOnAction(event -> DialoguesMenu.afficherReglesDuJeu());
-        btnSauvegarde.setOnAction(event -> gererSauvegarde());
-        btnParamettre.setOnAction(event -> gererParametres());
-        btnQuitter.setOnAction(event -> {
-            sauvegarderEtatCourantAutomatiqueSiPossible();
-            Platform.exit();
-        });
-
-        menuPrincipal.getChildren().addAll(
-            titre,
-            btnNiveau,
-            btnRegles,
-            btnSauvegarde,
-            btnParamettre,
-            btnQuitter
-        );
+        initialiserMenuPrincipal();
 
         racinePrincipale.getChildren().add(menuPrincipal);
         StackPane.setAlignment(menuPrincipal, Pos.CENTER_LEFT);
@@ -147,89 +104,8 @@ public class InterfacePrincipale extends Application {
         mettreAJourVisibilitePlateau();
 
         scenePrincipale = new Scene(racinePrincipale, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-        scenePrincipale.setOnKeyPressed(event -> {
-            if (transitionVictoireEnCours) {
-                event.consume();
-                return;
-            }
-
-            if (controleurPartie != null) {
-                controleurPartie.arreterDeplacementAutomatique();
-            }
-
-            if (event.getCode() == KeyCode.ESCAPE && modeJeuActif) {
-                quitterPartieEnCours();
-                event.consume();
-                return;
-            }
-
-            if (event.isControlDown() && event.getCode() == KeyCode.S) {
-                if (modeJeuActif) {
-                    sauvegarderEtatCourantPersonnalise();
-                }
-                event.consume();
-                return;
-            }
-
-            if (event.isControlDown() && event.getCode() == KeyCode.Z) {
-                if (moteurJeu != null && moteurJeu.annulerDernierCoup()) {
-                    plateauActuel = moteurJeu.exporterPlateau();
-                    dessinerPlateauActuel();
-                }
-                event.consume();
-                return;
-            }
-
-            if (!modeJeuActif) {
-                if (gererNavigationMenuPrincipal(event)) {
-                    event.consume();
-                }
-                return;
-            }
-
-            Direction direction = convertirToucheEnDirection(event.getCode());
-            if (direction == null || moteurJeu == null) {
-                return;
-            }
-
-            Animation.orienterPersonnage(direction);
-
-            if (moteurJeu.deplacer(direction)) {
-                Animation.avancerAnimationPersonnage(direction);
-                plateauActuel = moteurJeu.exporterPlateau();
-                dessinerPlateauActuel();
-                if (moteurJeu.estVictoire()) {
-                    sauvegarderEtatCourantAutomatiqueSiPossible();
-                    lancerAnimationVictoire(this::afficherSceneVictoire);
-                }
-            } else {
-                dessinerPlateauActuel();
-            }
-        });
-
-        canvasPlateau.widthProperty().bind(scenePrincipale.widthProperty().multiply(0.42));
-        canvasPlateau.heightProperty().bind(scenePrincipale.heightProperty().multiply(0.80));
-        canvasPlateau.widthProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
-        canvasPlateau.heightProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
-        controleurPartie = new ControleurPartie(
-            canvasPlateau,
-            () -> modeJeuActif,
-            () -> transitionVictoireEnCours,
-            () -> plateauActuel,
-            () -> moteurJeu,
-            () -> {
-                if (moteurJeu != null) {
-                    plateauActuel = moteurJeu.exporterPlateau();
-                }
-                dessinerPlateauActuel();
-            },
-            () -> {
-                sauvegarderEtatCourantAutomatiqueSiPossible();
-                lancerAnimationVictoire(this::afficherSceneVictoire);
-            }
-        );
-        controleurPartie.installerGestionClic();
+        initialiserNavigationClavierScenePrincipale();
+        initialiserControleurEtBindingsCanvas();
         dessinerPlateauActuel();
 
         if (backgroundView != null) {
@@ -254,35 +130,149 @@ public class InterfacePrincipale extends Application {
         activerPleinEcranEtFocus();
     }
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+    private void initialiserMenuPrincipal() {
+        menuPrincipal = Menu.creerConteneurMenu();
+        Text titre = Menu.creerTitre("WHISPIN");
+        Button btnNiveau = Menu.creerBoutonMenu("Niveau");
+        Button btnRegles = Menu.creerBoutonMenu("Regles du jeu");
+        Button btnSauvegarde = Menu.creerBoutonMenu("Sauvegarde");
+        Button btnParametres = Menu.creerBoutonMenu("Parametres");
+        Button btnQuitter = Menu.creerBoutonMenu("Quitter");
 
-    private static Case[][] creerPlateauApercu() {
-        int largeur = 12;
-        int hauteur = 10;
-        Case[][] plateau = new Case[hauteur][largeur];
+        boutonsMenuPrincipal = List.of(
+            btnNiveau,
+            btnRegles,
+            btnSauvegarde,
+            btnParametres,
+            btnQuitter
+        );
+        indexBoutonMenuPrincipal = 0;
 
-        for (int y = 0; y < hauteur; y++) {
-            for (int x = 0; x < largeur; x++) {
-                if (x == 0 || y == 0 || x == largeur - 1 || y == hauteur - 1) {
-                    plateau[y][x] = new CaseMur(x, y);
-                } else {
-                    plateau[y][x] = new CaseVide(x, y);
+        for (int i = 0; i < boutonsMenuPrincipal.size(); i++) {
+            final int index = i;
+            Button bouton = boutonsMenuPrincipal.get(i);
+            bouton.setOnMouseEntered(event -> indexBoutonMenuPrincipal = index);
+            bouton.focusedProperty().addListener((obs, oldValue, isFocused) -> {
+                if (isFocused) {
+                    indexBoutonMenuPrincipal = index;
                 }
-            }
+            });
         }
 
-        plateau[2][3] = new CaseBoite(3, 2);
-        plateau[5][4] = new CaseBoite(4, 5);
-        plateau[6][8] = new CaseBoite(8, 6);
+        btnNiveau.setOnAction(event -> chargerNiveauSelectionne());
+        btnRegles.setOnAction(event -> ouvrirSceneRegles());
+        btnSauvegarde.setOnAction(event -> ouvrirSceneSauvegarde());
+        btnParametres.setOnAction(event -> gererParametres());
+        btnQuitter.setOnAction(event -> {
+            sauvegarderEtatCourantAutomatiqueSiPossible();
+            Platform.exit();
+        });
 
-        plateau[2][8] = new CaseCible(8, 2);
-        plateau[4][8] = new CaseCible(8, 4);
-        plateau[6][3] = new CaseCible(3, 6);
+        menuPrincipal.getChildren().addAll(
+            titre,
+            btnNiveau,
+            btnRegles,
+            btnSauvegarde,
+            btnParametres,
+            btnQuitter
+        );
+    }
 
-        plateau[4][5] = new CasePersonnage(5, 4);
-        return plateau;
+    private void initialiserNavigationClavierScenePrincipale() {
+        scenePrincipale.setOnKeyPressed(this::gererToucheScenePrincipale);
+        NavigationClavierUI.installerNavigationBoutons(
+            scenePrincipale,
+            boutonsMenuPrincipal,
+            null,
+            () -> !modeJeuActif && menuPrincipal != null && menuPrincipal.isVisible(),
+            true
+        );
+    }
+
+    private void initialiserControleurEtBindingsCanvas() {
+        canvasPlateau.widthProperty().bind(scenePrincipale.widthProperty().multiply(0.42));
+        canvasPlateau.heightProperty().bind(scenePrincipale.heightProperty().multiply(0.80));
+        canvasPlateau.widthProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
+        canvasPlateau.heightProperty().addListener((obs, oldVal, newVal) -> dessinerPlateauActuel());
+
+        controleurPartie = new ControleurPartie(
+            canvasPlateau,
+            () -> modeJeuActif,
+            () -> transitionVictoireEnCours,
+            () -> plateauActuel,
+            () -> moteurJeu,
+            () -> {
+                if (moteurJeu != null) {
+                    plateauActuel = moteurJeu.exporterPlateau();
+                }
+                dessinerPlateauActuel();
+            },
+            () -> {
+                sauvegarderEtatCourantAutomatiqueSiPossible();
+                lancerAnimationVictoire(this::afficherSceneVictoire);
+            }
+        );
+        controleurPartie.installerGestionClic();
+    }
+
+    private void gererToucheScenePrincipale(KeyEvent event) {
+        if (transitionVictoireEnCours) {
+            event.consume();
+            return;
+        }
+
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
+        }
+
+        if (event.getCode() == KeyCode.ESCAPE && modeJeuActif) {
+            quitterPartieEnCours();
+            event.consume();
+            return;
+        }
+
+        if (event.isControlDown() && event.getCode() == KeyCode.S) {
+            if (modeJeuActif) {
+                sauvegarderEtatCourantPersonnalise();
+            }
+            event.consume();
+            return;
+        }
+
+        if (event.isControlDown() && event.getCode() == KeyCode.Z) {
+            if (moteurJeu != null && moteurJeu.annulerDernierCoup()) {
+                plateauActuel = moteurJeu.exporterPlateau();
+                dessinerPlateauActuel();
+            }
+            event.consume();
+            return;
+        }
+
+        if (!modeJeuActif) {
+            return;
+        }
+
+        Direction direction = convertirToucheEnDirection(event.getCode());
+        if (direction == null || moteurJeu == null) {
+            return;
+        }
+
+        Animation.orienterPersonnage(direction);
+        if (moteurJeu.deplacer(direction)) {
+            Animation.avancerAnimationPersonnage(direction);
+            plateauActuel = moteurJeu.exporterPlateau();
+            dessinerPlateauActuel();
+            if (moteurJeu.estVictoire()) {
+                sauvegarderEtatCourantAutomatiqueSiPossible();
+                lancerAnimationVictoire(this::afficherSceneVictoire);
+            }
+        } else {
+            dessinerPlateauActuel();
+        }
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 
     private void dessinerPlateauActuel() {
@@ -297,14 +287,112 @@ public class InterfacePrincipale extends Application {
 
         int lignes = plateauActuel.length;
         int colonnes = plateauActuel[0].length;
-        double tailleCase = Math.min(largeur / colonnes, hauteur / lignes);
+        boolean afficherMondesSuperieurs = moteurJeu != null && moteurJeu.getProfondeurRecursion() > 0;
+
+        // En mode récursif, on réserve de la largeur sur les côtés pour afficher
+        // les mini-scènes parentes à droite/gauche.
+        double largeurDisponiblePlateau = afficherMondesSuperieurs ? largeur * 0.56 : largeur;
+        double tailleCase = Math.min(largeurDisponiblePlateau / colonnes, hauteur / lignes);
+        double largeurPlateau = colonnes * tailleCase;
+        double hauteurPlateau = lignes * tailleCase;
         double origineX = (largeur - colonnes * tailleCase) / 2.0;
         double origineY = (hauteur - lignes * tailleCase) / 2.0;
 
+        dessinerMondesSuperieursAutour(gc, origineX, origineY, largeurPlateau, hauteurPlateau, tailleCase);
         RenduPlateau.dessinerPlateau(gc, plateauActuel, origineX, origineY, tailleCase);
 
         if (victoireAnimee) {
             feuArtifice.dessiner(gc, tempsAnimationVictoireNs);
+        }
+    }
+
+    private void dessinerMondesSuperieursAutour(
+        GraphicsContext gc,
+        double origineX,
+        double origineY,
+        double largeurPlateau,
+        double hauteurPlateau,
+        double tailleCase
+    ) {
+        if (moteurJeu == null || moteurJeu.getProfondeurRecursion() <= 0) {
+            return;
+        }
+
+        java.util.List<Case[][]> mondesSuperieurs = moteurJeu.exporterPlateauxSuperieurs();
+        java.util.List<Character> identifiantsMondesSuperieurs = moteurJeu.exporterIdentifiantsMondesSuperieurs();
+        if (mondesSuperieurs == null || mondesSuperieurs.isEmpty()) {
+            return;
+        }
+
+        // Chaque monde supérieur est affiché comme une mini-scène (échelle 1/4)
+        // autour du plateau principal pour rester lisible.
+        double largeurMini = largeurPlateau * 0.30;
+        double hauteurMini = hauteurPlateau * 0.30;
+        double marge = Math.max(8.0, tailleCase * 0.35);
+        double paddingInterieur = Math.max(3.0, tailleCase * 0.08);
+        double hauteurBandeauTitre = Math.max(14.0, tailleCase * 0.40);
+
+        double centreY = origineY + (hauteurPlateau - hauteurMini) / 2.0;
+        double xDroite = origineX + largeurPlateau + marge;
+        double xGauche = origineX - largeurMini - marge;
+        double pasVertical = hauteurMini + marge;
+
+        int limite = mondesSuperieurs.size();
+        for (int i = 0; i < limite; i++) {
+            Case[][] monde = mondesSuperieurs.get(i);
+            if (monde == null || monde.length == 0 || monde[0] == null || monde[0].length == 0) {
+                continue;
+            }
+
+            // Ordre d'affichage: droite (parent immédiat), puis gauche, puis alternance.
+            boolean placerADroite = (i % 2 == 0);
+            int rangColonne = i / 2;
+            double decalageY;
+            if (rangColonne == 0) {
+                decalageY = 0.0;
+            } else {
+                int couche = (rangColonne + 1) / 2;
+                boolean versHaut = (rangColonne % 2 == 1);
+                decalageY = (versHaut ? -1.0 : 1.0) * couche * pasVertical;
+            }
+
+            double zoneX = placerADroite ? xDroite : xGauche;
+            double zoneY = centreY + decalageY;
+            double zoneLargeur = largeurMini;
+            double zoneHauteur = hauteurMini;
+
+            gc.save();
+            gc.setGlobalAlpha(0.92);
+            gc.setFill(javafx.scene.paint.Color.web("#0b1220", 0.88));
+            gc.fillRoundRect(zoneX, zoneY, zoneLargeur, zoneHauteur, 10, 10);
+
+            gc.setStroke(javafx.scene.paint.Color.web("#93c5fd", 0.9));
+            gc.setLineWidth(Math.max(1.0, tailleCase * 0.06));
+            gc.strokeRoundRect(zoneX, zoneY, zoneLargeur, zoneHauteur, 10, 10);
+
+            gc.setFill(javafx.scene.paint.Color.web("#1e3a5f", 0.95));
+            gc.fillRoundRect(zoneX, zoneY, zoneLargeur, hauteurBandeauTitre, 10, 10);
+            gc.fillRect(zoneX, zoneY + hauteurBandeauTitre * 0.5, zoneLargeur, hauteurBandeauTitre * 0.5);
+
+            char identifiant = (identifiantsMondesSuperieurs != null && i < identifiantsMondesSuperieurs.size())
+                ? identifiantsMondesSuperieurs.get(i)
+                : '?';
+            gc.setFill(javafx.scene.paint.Color.web("#dbeafe"));
+            gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
+            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+            gc.setFont(javafx.scene.text.Font.font(Math.max(10.0, tailleCase * 0.22)));
+            gc.fillText("Monde " + identifiant, zoneX + zoneLargeur / 2.0, zoneY + hauteurBandeauTitre / 2.0);
+
+            int lignesParent = monde.length;
+            int colonnesParent = monde[0].length;
+            double zoneInterieureLargeur = Math.max(1.0, zoneLargeur - paddingInterieur * 2.0);
+            double zoneInterieureHauteur = Math.max(1.0, zoneHauteur - paddingInterieur * 2.0 - hauteurBandeauTitre);
+            double tailleMiniCase = Math.min(zoneInterieureLargeur / colonnesParent, zoneInterieureHauteur / lignesParent);
+            double miniOrigineX = zoneX + (zoneLargeur - colonnesParent * tailleMiniCase) / 2.0;
+            double miniOrigineY = zoneY + hauteurBandeauTitre + (zoneHauteur - hauteurBandeauTitre - lignesParent * tailleMiniCase) / 2.0;
+
+            RenduPlateau.dessinerPlateau(gc, monde, miniOrigineX, miniOrigineY, tailleMiniCase);
+            gc.restore();
         }
     }
 
@@ -345,17 +433,7 @@ public class InterfacePrincipale extends Application {
             return false;
         }
 
-        moteurJeu = new LogiqueSokoban(niveauCharge);
-        plateauActuel = moteurJeu.exporterPlateau();
-        nomNiveauActuel = niveau;
-        Animation.reinitialiserAnimationPersonnage();
-        arreterAnimationVictoire();
-        transitionVictoireEnCours = false;
-        modeJeuActif = true;
-        mettreAJourVisibilitePlateau();
-        replierMenuJeu();
-        dessinerPlateauActuel();
-        activerPleinEcranEtFocus();
+        appliquerEtatPartieChargee(new LogiqueSokoban(niveauCharge), niveau);
 
         return true;
     }
@@ -370,14 +448,13 @@ public class InterfacePrincipale extends Application {
         if (stagePrincipal != null && scenePrincipale != null && stagePrincipal.getScene() != scenePrincipale) {
             stagePrincipal.setScene(scenePrincipale);
         }
-        plateauActuel = creerPlateauApercu();
-        moteurJeu = new LogiqueSokoban(plateauActuel);
-        nomNiveauActuel = "aperçu";
+        plateauActuel = null;
+        moteurJeu = null;
+        nomNiveauActuel = null;
         Animation.reinitialiserAnimationPersonnage();
         modeJeuActif = false;
         mettreAJourVisibilitePlateau();
         deplierMenuJeu();
-        dessinerPlateauActuel();
     }
 
     private void afficherSceneVictoire() {
@@ -451,31 +528,40 @@ public class InterfacePrincipale extends Application {
         Platform.runLater(() -> focusBoutonMenuPrincipal(indexBoutonMenuPrincipal));
     }
 
-    private void gererSauvegarde() {
-        String action = DialoguesMenu.ouvrirDialogueActionSauvegarde();
-        if (action == null) {
+    private void ouvrirSceneRegles() {
+        if (stagePrincipal == null || scenePrincipale == null) {
             return;
         }
 
-        switch (action) {
-            case "Sauvegarder":
-                sauvegarderEtatCourant();
-                break;
-            case "Charger":
-                chargerSauvegarde();
-                break;
-            case "Lister":
-                DialoguesMenu.afficherSauvegardes();
-                break;
-            default:
-                break;
+        Scene sceneRegles = SceneRegles.creer(
+            scenePrincipale.getWidth(),
+            scenePrincipale.getHeight(),
+            creerActionRetourScenePrincipale()
+        );
+        afficherSceneSecondaire(sceneRegles);
+    }
+
+    private void ouvrirSceneSauvegarde() {
+        if (stagePrincipal == null || scenePrincipale == null) {
+            return;
         }
+
+        Scene sceneSauvegarde = SceneSauvegarde.creer(
+            scenePrincipale.getWidth(),
+            scenePrincipale.getHeight(),
+            modeJeuActif,
+            this::sauvegarderEtatCourantDepuisScene,
+            this::listerSauvegardesPourScene,
+            this::chargerSauvegardeDepuisChemin,
+            creerActionRetourScenePrincipale()
+        );
+        afficherSceneSecondaire(sceneSauvegarde);
     }
 
     private void gererParametres() {
         List<String> personnages = Animation.getPersonnagesDisponibles();
         if (personnages.isEmpty()) {
-            DialoguesMenu.afficherInformation("Paramettre", "Aucun personnage trouve dans assets/player.");
+            DialoguesMenu.afficherInformation("Parametres", "Aucun personnage trouve dans assets/player.");
             return;
         }
 
@@ -487,15 +573,7 @@ public class InterfacePrincipale extends Application {
             return;
         }
 
-        Runnable retourScenePrincipale = () -> {
-            stagePrincipal.setScene(scenePrincipale);
-            activerPleinEcranEtFocus();
-            if (!modeJeuActif) {
-                focusBoutonMenuPrincipal(indexBoutonMenuPrincipal);
-            } else if (racinePrincipale != null) {
-                racinePrincipale.requestFocus();
-            }
-        };
+        Runnable retourScenePrincipale = creerActionRetourScenePrincipale();
 
         Scene sceneChoix = SceneChoixPersonnage.creer(
             scenePrincipale.getWidth(),
@@ -504,7 +582,7 @@ public class InterfacePrincipale extends Application {
             Animation.getPersonnageActuel(),
             choisi -> {
                 if (!Animation.selectionnerPersonnage(choisi)) {
-                    DialoguesMenu.afficherInformation("Paramettre", "Impossible de charger le personnage choisi.");
+                    DialoguesMenu.afficherInformation("Parametres", "Impossible de charger le personnage choisi.");
                     return;
                 }
                 dessinerPlateauActuel();
@@ -513,17 +591,71 @@ public class InterfacePrincipale extends Application {
             retourScenePrincipale
         );
 
-        stagePrincipal.setScene(sceneChoix);
-        activerPleinEcranEtFocus();
+        afficherSceneSecondaire(sceneChoix);
     }
 
-    private void sauvegarderEtatCourant() {
+    private String sauvegarderEtatCourantDepuisScene() {
+        if (!modeJeuActif || plateauActuel == null) {
+            return "Aucune partie active a sauvegarder.";
+        }
+
         try {
             Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
-            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel);
-            DialoguesMenu.afficherInformation("Sauvegarde", "Sauvegarde creee : " + chemin.getFileName());
-        } catch (Exception e) {
-            DialoguesMenu.afficherInformation("Erreur", "Echec de la sauvegarde.");
+            String solutionSokobano = moteurJeu == null ? "" : moteurJeu.exporterCoupsSokobano();
+            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel, solutionSokobano);
+            return "Sauvegarde creee : " + chemin.getFileName();
+        } catch (IOException e) {
+            return "Echec de la sauvegarde.";
+        }
+    }
+
+    private List<ServicePersistance.SauvegardeInfo> listerSauvegardesPourScene() {
+        try {
+            return ServicePersistance.listerSauvegardesInfos();
+        } catch (IOException e) {
+            return List.of();
+        }
+    }
+
+    private String chargerSauvegardeDepuisChemin(Path chemin) {
+        if (controleurPartie != null) {
+            controleurPartie.arreterDeplacementAutomatique();
+        }
+        if (chemin == null) {
+            return "Aucune sauvegarde selectionnee.";
+        }
+
+        try {
+            ServicePersistance.SauvegardeChargee sauvegarde = ServicePersistance.chargerSauvegardeJson(chemin);
+            if (sauvegarde.getPlateau() == null) {
+                return "Sauvegarde invalide.";
+            }
+
+            String niveauSauvegarde = sauvegarde.getNiveau();
+            boolean etatReconstruit = false;
+            String solutionSokobano = sauvegarde.getSolutionSokobano();
+            if (niveauSauvegarde != null && !niveauSauvegarde.isBlank()
+                && solutionSokobano != null && !solutionSokobano.isBlank()) {
+                ChargeurNiveau.NiveauCharge niveauCharge =
+                    ChargeurNiveau.chargerNiveauRecursifDepuisFichier("niveau/" + niveauSauvegarde);
+                if (niveauCharge != null) {
+                    LogiqueSokoban moteurReconstruit = new LogiqueSokoban(niveauCharge);
+                    if (moteurReconstruit.rejouerCoupsSokobano(solutionSokobano)) {
+                        moteurJeu = moteurReconstruit;
+                        plateauActuel = moteurJeu.exporterPlateau();
+                        etatReconstruit = true;
+                    }
+                }
+            }
+
+            if (!etatReconstruit) {
+                moteurJeu = new LogiqueSokoban(sauvegarde.getPlateau());
+            }
+
+            appliquerEtatPartieChargee(moteurJeu, sauvegarde.getNiveau());
+            return "Sauvegarde chargee : " + chemin.getFileName();
+        } catch (IOException | IllegalArgumentException e) {
+            return "Echec du chargement.";
         }
     }
 
@@ -539,9 +671,10 @@ public class InterfacePrincipale extends Application {
 
         try {
             Path chemin = ServicePersistance.creerCheminSauvegardePersonnalisee(nomSouhaite);
-            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel);
+            String solutionSokobano = moteurJeu == null ? "" : moteurJeu.exporterCoupsSokobano();
+            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel, solutionSokobano);
             DialoguesMenu.afficherInformation("Sauvegarde", "Sauvegarde creee : " + chemin.getFileName());
-        } catch (Exception e) {
+        } catch (IOException e) {
             DialoguesMenu.afficherInformation("Erreur", "Echec de la sauvegarde personnalisee.");
         }
     }
@@ -553,45 +686,10 @@ public class InterfacePrincipale extends Application {
 
         try {
             Path chemin = ServicePersistance.creerCheminSauvegardeAuto();
-            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel);
-        } catch (Exception e) {
+            String solutionSokobano = moteurJeu == null ? "" : moteurJeu.exporterCoupsSokobano();
+            ServicePersistance.sauvegarderSessionJson(chemin, nomNiveauActuel, plateauActuel, solutionSokobano);
+        } catch (IOException e) {
             // Les sauvegardes auto ne doivent pas interrompre le flux de jeu.
-        }
-    }
-
-    private void chargerSauvegarde() {
-        if (controleurPartie != null) {
-            controleurPartie.arreterDeplacementAutomatique();
-        }
-        Path chemin = DialoguesMenu.ouvrirDialogueChargementSauvegarde();
-        if (chemin == null) {
-            return;
-        }
-
-        try {
-            ServicePersistance.SauvegardeChargee sauvegarde = ServicePersistance.chargerSauvegardeJson(chemin);
-            if (sauvegarde.getPlateau() == null) {
-                DialoguesMenu.afficherInformation("Erreur", "Sauvegarde invalide.");
-                return;
-            }
-
-            plateauActuel = sauvegarde.getPlateau();
-            moteurJeu = new LogiqueSokoban(plateauActuel);
-            nomNiveauActuel = sauvegarde.getNiveau();
-            Animation.reinitialiserAnimationPersonnage();
-            arreterAnimationVictoire();
-            transitionVictoireEnCours = false;
-            modeJeuActif = true;
-            mettreAJourVisibilitePlateau();
-            if (stagePrincipal != null && scenePrincipale != null && stagePrincipal.getScene() != scenePrincipale) {
-                stagePrincipal.setScene(scenePrincipale);
-            }
-            replierMenuJeu();
-            dessinerPlateauActuel();
-            activerPleinEcranEtFocus();
-            DialoguesMenu.afficherInformation("Sauvegarde", "Sauvegarde chargee : " + chemin.getFileName());
-        } catch (Exception e) {
-            DialoguesMenu.afficherInformation("Erreur", "Echec du chargement.");
         }
     }
 
@@ -664,6 +762,49 @@ public class InterfacePrincipale extends Application {
         });
     }
 
+    private Runnable creerActionRetourScenePrincipale() {
+        return () -> {
+            if (stagePrincipal != null && scenePrincipale != null) {
+                stagePrincipal.setScene(scenePrincipale);
+            }
+            activerPleinEcranEtFocus();
+            if (!modeJeuActif) {
+                focusBoutonMenuPrincipal(indexBoutonMenuPrincipal);
+            } else if (racinePrincipale != null) {
+                racinePrincipale.requestFocus();
+            }
+        };
+    }
+
+    private void afficherSceneSecondaire(Scene scene) {
+        if (stagePrincipal == null || scene == null) {
+            return;
+        }
+        stagePrincipal.setScene(scene);
+        activerPleinEcranEtFocus();
+    }
+
+    private void appliquerEtatPartieChargee(LogiqueSokoban moteurCharge, String nomNiveau) {
+        if (moteurCharge == null) {
+            return;
+        }
+
+        moteurJeu = moteurCharge;
+        plateauActuel = moteurJeu.exporterPlateau();
+        nomNiveauActuel = nomNiveau;
+        Animation.reinitialiserAnimationPersonnage();
+        arreterAnimationVictoire();
+        transitionVictoireEnCours = false;
+        modeJeuActif = true;
+        mettreAJourVisibilitePlateau();
+        if (stagePrincipal != null && scenePrincipale != null && stagePrincipal.getScene() != scenePrincipale) {
+            stagePrincipal.setScene(scenePrincipale);
+        }
+        replierMenuJeu();
+        dessinerPlateauActuel();
+        activerPleinEcranEtFocus();
+    }
+
     private void mettreAJourVisibilitePlateau() {
         if (canvasPlateau == null) {
             return;
@@ -671,34 +812,6 @@ public class InterfacePrincipale extends Application {
 
         canvasPlateau.setVisible(modeJeuActif);
         canvasPlateau.setManaged(modeJeuActif);
-    }
-
-    private boolean gererNavigationMenuPrincipal(KeyEvent event) {
-        if (event == null || menuPrincipal == null || !menuPrincipal.isVisible()) {
-            return false;
-        }
-        if (boutonsMenuPrincipal == null || boutonsMenuPrincipal.isEmpty()) {
-            return false;
-        }
-
-        KeyCode code = event.getCode();
-        if (code == KeyCode.UP || code == KeyCode.Z || code == KeyCode.W) {
-            focusBoutonMenuPrincipal(indexBoutonMenuPrincipal - 1);
-            return true;
-        }
-        if (code == KeyCode.DOWN || code == KeyCode.S) {
-            focusBoutonMenuPrincipal(indexBoutonMenuPrincipal + 1);
-            return true;
-        }
-        if (code == KeyCode.TAB) {
-            focusBoutonMenuPrincipal(indexBoutonMenuPrincipal + (event.isShiftDown() ? -1 : 1));
-            return true;
-        }
-        if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-            boutonsMenuPrincipal.get(indexBoutonMenuPrincipal).fire();
-            return true;
-        }
-        return false;
     }
 
     private void focusBoutonMenuPrincipal(int indexSouhaite) {
