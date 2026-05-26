@@ -40,6 +40,63 @@ Le jeu combine:
 Le `makefile` ajoute automatiquement `lib/*` au classpath pour Jackson.
 Pour JavaFX, il utilise une installation systeme detectee (ou les variables `JAVAFX_LIB` / `JAVAFX_RUN_LIB`).
 
+## Installation
+
+### Installation automatique (recommandee)
+
+Le script `install.sh` installe/verifie les dependances necessaires puis compile le projet.
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+Ce que fait le script:
+
+- verifie Java/JDK (17+),
+- installe les outils manquants (`make`, `curl`/`wget`, `unzip`),
+- detecte/installe JavaFX,
+- verifie les JAR Jackson dans `lib/`,
+- compile avec `make build`,
+- genere `.env` et `run.sh`.
+
+Lancer le jeu apres installation:
+
+```bash
+./run.sh
+```
+
+Ou:
+
+```bash
+make run
+```
+
+### Installation via Docker
+
+Construire l'image:
+
+```bash
+docker build -t whispin-sokoban .
+```
+
+Executer le conteneur (Linux X11):
+
+```bash
+xhost +local:docker
+docker run --rm \
+	-e DISPLAY=$DISPLAY \
+	-v /tmp/.X11-unix:/tmp/.X11-unix \
+	-v "$(pwd)/sauvegardes:/app/sauvegardes" \
+	whispin-sokoban
+```
+
+Remettre la securite X11:
+
+```bash
+xhost -local:docker
+```
+
 ## Arborescence utile
 
 - `src/main/java/ui/`: interface JavaFX (scenes, menu, animation, selection de niveaux).
